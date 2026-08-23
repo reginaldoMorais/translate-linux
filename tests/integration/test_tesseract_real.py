@@ -25,6 +25,15 @@ pytestmark = [
 ]
 
 
+# Wide enough for every string these tests use. A fixed canvas is deliberate:
+# asking the font for its metrics returned garbage on the CI runner -- values in
+# the millions, and negative ones -- so the fixture no longer depends on that
+# call at all. Extra whitespace costs nothing; recognition ignores it.
+CANVAS_WIDTH = 900
+LINE_SPACING = 10
+MARGIN = 12
+
+
 def render(text: str, path: Path, *, size: int = 18, invert: bool = False) -> Path:
     """Draw text at a size typical of an application window."""
     background, foreground = (
@@ -33,19 +42,16 @@ def render(text: str, path: Path, *, size: int = 18, invert: bool = False) -> Pa
     font = ImageFont.truetype(str(FONT_PATH), size)
     lines = text.splitlines() or [""]
 
-    width = max(int(font.getlength(line)) for line in lines) + 24
-    height = (size + 8) * len(lines) + 16
-
-    # Guard the fixture itself. A font that loads but reports nonsense metrics
-    # produces an image Tesseract rejects with an opaque libpng error, which
-    # says nothing about the actual cause.
-    assert 32 <= width <= 4000, f"fixture width is implausible: {width}"
-    assert 16 <= height <= 4000, f"fixture height is implausible: {height}"
-
-    image = Image.new("RGB", (width, height), background)
+    height = (size + LINE_SPACING) * len(lines) + 2 * MARGIN
+    image = Image.new("RGB", (CANVAS_WIDTH, height), background)
     draw = ImageDraw.Draw(image)
     for index, line in enumerate(lines):
-        draw.text((12, 8 + index * (size + 8)), line, fill=foreground, font=font)
+        draw.text(
+            (MARGIN, MARGIN + index * (size + LINE_SPACING)),
+            line,
+            fill=foreground,
+            font=font,
+        )
     image.save(path)
     return path
 
