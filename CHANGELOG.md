@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-23
+
+### Added
+
+- A tray icon, implemented by speaking StatusNotifierItem and
+  com.canonical.dbusmenu directly over D-Bus, and `--tray` to run resident.
+- A GTK4 result window in Brazilian Portuguese showing the translation, the
+  recognised text, and a way to correct that text and translate again.
+- A local translation cache, composed onto any provider as a decorator.
+- `capture_async`, a non-blocking capture for use inside the GTK main loop.
+- `recognise_and_translate` and `translate_text`, which separate recognition
+  from capture so the tray can capture asynchronously.
+
+### Changed
+
+- libayatana-appindicator3 is not used: it is built against GTK 3 and cannot
+  be loaded beside GTK 4.
+
 ## [0.1.0] - 2026-08-23
 
 ### Added

@@ -20,7 +20,7 @@ from pathlib import Path
 from types import TracebackType
 
 from translate_linux.constants import cache_dir
-from translate_linux.translate.base import Translation
+from translate_linux.translate.base import Translation, TranslationProvider
 
 SCHEMA_VERSION = 1
 DEFAULT_MAX_ENTRIES = 2000
@@ -178,3 +178,32 @@ class TranslationCache:
         # Never let a cache problem break a translation the user is waiting for.
         with contextlib.suppress(sqlite3.DatabaseError):
             self._connection.execute(statement, parameters)
+
+
+class CachingProvider:
+    """Wraps any provider so repeated captures are answered from disk.
+
+    A decorator rather than a branch inside the orchestrator: providers are
+    already defined by a protocol, so caching composes with all of them --
+    including the offline engine, where a hit saves loading the model.
+    """
+
+    def __init__(self, provider: TranslationProvider, cache: TranslationCache) -> None:
+        self._provider = provider
+        self._cache = cache
+        # A plain attribute, not a property: the protocol declares it as one,
+        # and a read-only property would not satisfy it.
+        self.name = provider.name
+
+    @property
+    def wrapped(self) -> TranslationProvider:
+        return self._provider
+
+    def translate(self, text: str, source: str | None, target: str) -> Translation:
+        hit = self._cache.lookup(text, source, target, self._provider.name)
+        if hit is not None:
+            return hit
+
+        translation = self._provider.translate(text, source, target)
+        self._cache.store(text, source, translation)
+        return translation

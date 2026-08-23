@@ -9,6 +9,7 @@ import pytest
 
 from translate_linux.translate.base import Translation
 from translate_linux.translate.cache import (
+    CachingProvider,
     TranslationCache,
     cache_key,
 )
@@ -181,3 +182,67 @@ class TestClear:
         cache.store("b", None, translation())
         cache.clear()
         assert cache.count() == 0
+
+
+class TestCachingProvider:
+    """Caching composes with every provider because they share a protocol."""
+
+    class Counting:
+        name = "counting"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def translate(self, text: str, source: str | None, target: str) -> Translation:
+            self.calls += 1
+            return Translation(
+                text=f"[{self.calls}] {text}",
+                detected_source="en",
+                target=target,
+                provider=self.name,
+            )
+
+    def wrap(self, tmp_path: Path) -> tuple[CachingProvider, TestCachingProvider.Counting]:
+        inner = self.Counting()
+        return CachingProvider(inner, TranslationCache(tmp_path / "c.db")), inner
+
+    def test_the_first_call_reaches_the_provider(self, tmp_path: Path) -> None:
+        provider, inner = self.wrap(tmp_path)
+        assert provider.translate("hello", None, "pt").text == "[1] hello"
+        assert inner.calls == 1
+
+    def test_a_repeat_is_answered_from_the_cache(self, tmp_path: Path) -> None:
+        provider, inner = self.wrap(tmp_path)
+        provider.translate("hello", None, "pt")
+        again = provider.translate("hello", None, "pt")
+
+        assert inner.calls == 1, "the provider must not be asked twice"
+        assert again.text == "[1] hello"
+        assert again.from_cache is True
+
+    def test_different_text_still_reaches_the_provider(self, tmp_path: Path) -> None:
+        provider, inner = self.wrap(tmp_path)
+        provider.translate("hello", None, "pt")
+        provider.translate("goodbye", None, "pt")
+        assert inner.calls == 2
+
+    def test_a_different_target_is_a_different_question(self, tmp_path: Path) -> None:
+        provider, inner = self.wrap(tmp_path)
+        provider.translate("hello", None, "pt")
+        provider.translate("hello", None, "de")
+        assert inner.calls == 2
+
+    def test_the_wrapper_reports_the_inner_name(self, tmp_path: Path) -> None:
+        provider, inner = self.wrap(tmp_path)
+        assert provider.name == inner.name
+
+    def test_the_inner_provider_stays_reachable(self, tmp_path: Path) -> None:
+        """The idle timer needs the model, not the wrapper around it."""
+        provider, inner = self.wrap(tmp_path)
+        assert provider.wrapped is inner
+
+    def test_it_satisfies_the_provider_protocol(self, tmp_path: Path) -> None:
+        from translate_linux.translate.base import TranslationProvider
+
+        provider, _inner = self.wrap(tmp_path)
+        assert isinstance(provider, TranslationProvider)
