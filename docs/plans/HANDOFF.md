@@ -38,7 +38,7 @@ O produto: um utilitário de bandeja para Zorin OS que reproduz o gesto do `Prin
 1. **A sessão é Wayland** (Zorin OS 18.1, GNOME Shell 46). Captura direta de tela e overlays próprios em tela cheia são **tecnicamente impossíveis**.
 2. **`org.freedesktop.portal.Screenshot` versão 2 está disponível** e aceita `interactive: true`, fazendo o **GNOME Shell desenhar a própria UI de seleção**. Isso entrega a paridade com o PrintScreen do Zorin *de graça* — nenhuma UI de seleção precisa ser escrita. É a peça central do design.
 3. **`GlobalShortcuts` do portal NÃO existe** neste sistema. O atalho global precisa ser registrado via GSettings do GNOME (`media-keys custom-keybindings`).
-4. **`tesseract` NÃO está instalado.** Precisa ser dependência do `.deb` e ser verificado em runtime.
+4. **`tesseract` 5.3.4 está instalado** nesta máquina desde 2026-08-23 (`eng`, `osd`, `por`), mas **não vem por padrão no Zorin**: continua sendo dependência obrigatória do `.deb` e verificação de runtime (RF-18).
 5. **O `python3` do `PATH` é pyenv 3.11.6 SEM o módulo `gi`.** O desenvolvimento **deve** usar `/usr/bin/python3` (3.12.3, que tem `gi` + GTK4 + Adw 1.5). Este é o tropeço número um do onboarding.
 
 > Detalhes completos do ambiente: SPEC.md → *Análise do Estado Atual* e *Implicações críticas (IC1–IC6)*.
@@ -84,7 +84,7 @@ Ressalva de empacotamento: **`ctranslate2` não existe no APT** do Ubuntu 24.04.
 | ID | Pergunta | Suposição atual | Bloqueia |
 |---|---|---|---|
 | PA-02 | Owner do GitHub / nome do repositório | `rmorais/translate-linux` | M0 (nomes de schema e app ID) |
-| PA-04 | O `interactive: true` salva cópia em `~/Pictures/Screenshots`? | Não salva — **validar empiricamente no M1** | Nada; é uma verificação do M1 |
+| PA-04 | O `interactive: true` salva cópia em `~/Pictures/Screenshots`? | Não salva — **verificação humana pendente**, ver seção 6 | Nada; script pronto em `scripts/verify_portal_behaviour.py` |
 | PA-06 | Idiomas de OCR padrão | `eng` + `por` + `osd` | Nada |
 | PA-07 | Licença | MIT | M0 |
 | PA-08 | Autostart ligado por padrão? | Sim | M3 |
@@ -105,11 +105,11 @@ Ressalva de empacotamento: **`ctranslate2` não existe no APT** do Ubuntu 24.04.
 | R2 | Acurácia de OCR em texto pequeno de UI | 🟡 **Maior risco aberto.** Mitigado por design (edição manual, upscale 3×) — validar no M1 |
 | R3 | `interactive: true` pode salvar cópia da captura | 🟡 **Validar empiricamente no M1** (PA-04) |
 | R6 | Exposição de conteúdo de tela a terceiros | 🟡 Mitigado por consentimento; **eliminado por completo para quem usar o provider offline (M4)** |
-| R12 | Corrida ao assinar o sinal `Response` do portal | 🟡 Mitigado por design (RF-02) — **exercitar no M1** |
+| R12 | Corrida ao assinar o sinal `Response` do portal | 🟢 **Retirado em 2026-08-23** — teste de regressão contra portal falso reproduz a ordenação patológica |
 | R13 | Qualidade do modelo offline abaixo da API do Google | 🟡 Aberto — offline é opt-in e a origem é sinalizada na UI |
 | R14 | Modelos de ~100 MB e `ctranslate2` fora do APT | 🟡 Mitigado por design (D-13) |
 | R7 | Atrito do pyenv sem `gi` | 🟢 Resolvido por design (`make dev-setup` + README) |
-| R11 | Tesseract ausente por padrão | 🟢 Resolvido por design (`Depends:` + verificação em runtime) |
+| R11 | Tesseract ausente por padrão | 🟢 Resolvido por design; OCR validado de verdade contra o binário 5.3.4 |
 
 ---
 
