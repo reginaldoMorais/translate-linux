@@ -47,8 +47,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/rmorais/translate-linux"
-Issues = "https://github.com/rmorais/translate-linux/issues"
+Homepage = "https://github.com/reginaldoMorais/translate-linux"
+Issues = "https://github.com/reginaldoMorais/translate-linux/issues"
 
 [project.scripts]
 translate-linux = "translate_linux.cli:main"

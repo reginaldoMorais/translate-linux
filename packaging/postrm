@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|purge)
+        if command -v glib-compile-schemas >/dev/null 2>&1; then
+            glib-compile-schemas /usr/share/glib-2.0/schemas || true
+        fi
+        if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
+        fi
+        ;;
+esac
+
+# Autostart entries and downloaded models live under the user's home, so they
+# are never touched from here: a package script must not reach into $HOME.
+# "translate-linux --autostart off" removes the entry, and the preferences
+# window removes models.
+
+
+exit 0

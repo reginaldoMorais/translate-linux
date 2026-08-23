@@ -29,5 +29,8 @@ htmlcov/
 # Compiled from data/*.gschema.xml
 data/gschemas.compiled
 
+# Built packages
+dist/
+
 # Runtime artefacts
 *.log

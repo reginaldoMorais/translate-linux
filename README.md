@@ -25,13 +25,13 @@ salvar uma imagem, receba **o texto reconhecido e traduzido**.
 
 ## Ambiente-alvo
 
-| Item | Versão |
-|---|---|
-| Distribuição | Zorin OS 18 (Ubuntu 24.04 "noble") |
-| Sessão | Wayland (X11 tem fallback de menor prioridade) |
-| GNOME Shell | 46 |
-| Python | 3.10 ou superior (3.12 no alvo) |
-| GTK / libadwaita | 4.14 / 1.5 |
+| Item             | Versão                                         |
+| ---------------- | ---------------------------------------------- |
+| Distribuição     | Zorin OS 18 (Ubuntu 24.04 "noble")             |
+| Sessão           | Wayland (X11 tem fallback de menor prioridade) |
+| GNOME Shell      | 46                                             |
+| Python           | 3.10 ou superior (3.12 no alvo)                |
+| GTK / libadwaita | 4.14 / 1.5                                     |
 
 ## Requisitos de sistema
 
@@ -58,7 +58,7 @@ sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 \
 > `--system-site-packages`. Não substitua isso por `python3 -m venv .venv`.
 
 ```bash
-git clone https://github.com/rmorais/translate-linux.git
+git clone https://github.com/reginaldoMorais/translate-linux.git
 cd translate-linux
 make dev-setup
 ```
@@ -79,17 +79,17 @@ Verifique se o PyGObject está acessível:
 
 ## Comandos de desenvolvimento
 
-| Comando | O que faz |
-|---|---|
+| Comando          | O que faz                                              |
+| ---------------- | ------------------------------------------------------ |
 | `make dev-setup` | Cria o virtualenv e instala o projeto em modo editável |
-| `make lint` | `ruff check` + verificação de formatação |
-| `make format` | Corrige e reformata o código |
-| `make typecheck` | `mypy` em modo estrito |
-| `make test` | Executa a suíte de testes |
-| `make coverage` | Testes com relatório de cobertura |
-| `make check` | Lint + tipos + testes (o mesmo que a CI roda) |
-| `make run` | Executa a aplicação a partir da árvore de trabalho |
-| `make clean` | Remove artefatos de build e caches |
+| `make lint`      | `ruff check` + verificação de formatação               |
+| `make format`    | Corrige e reformata o código                           |
+| `make typecheck` | `mypy` em modo estrito                                 |
+| `make test`      | Executa a suíte de testes                              |
+| `make coverage`  | Testes com relatório de cobertura                      |
+| `make check`     | Lint + tipos + testes (o mesmo que a CI roda)          |
+| `make run`       | Executa a aplicação a partir da árvore de trabalho     |
+| `make clean`     | Remove artefatos de build e caches                     |
 
 Testes marcados com `network` ficam fora da execução padrão e nunca rodam na
 CI. Para executá-los deliberadamente:
@@ -143,28 +143,28 @@ do Google:
 
 Outros comandos:
 
-| Comando | O que faz |
-|---|---|
-| `--tray` | Roda residente na bandeja do sistema |
-| `--doctor` | Relata o estado de tudo de que o aplicativo depende |
-| `--autostart on\|off\|status` | Controla o início junto com a sessão |
-| `--shortcut '<Super><Shift>t'` | Registra o atalho global (`off` remove) |
-| `--list-models` | Lista o motor e os modelos offline instalados |
-| `--install-engine` | Instala o motor offline em um virtualenv privado |
-| `--install-model PAR` | Baixa e instala um modelo, por exemplo `en-pt` |
-| `--portal-info` | Mostra o tipo de sessão e a versão do portal de captura |
-| `--set-api-key` | Guarda a chave da API do Google no chaveiro (sem eco) |
-| `--clear-api-key` | Remove a chave guardada |
+| Comando                        | O que faz                                               |
+| ------------------------------ | ------------------------------------------------------- |
+| `--tray`                       | Roda residente na bandeja do sistema                    |
+| `--doctor`                     | Relata o estado de tudo de que o aplicativo depende     |
+| `--autostart on\|off\|status`  | Controla o início junto com a sessão                    |
+| `--shortcut '<Super><Shift>t'` | Registra o atalho global (`off` remove)                 |
+| `--list-models`                | Lista o motor e os modelos offline instalados           |
+| `--install-engine`             | Instala o motor offline em um virtualenv privado        |
+| `--install-model PAR`          | Baixa e instala um modelo, por exemplo `en-pt`          |
+| `--portal-info`                | Mostra o tipo de sessão e a versão do portal de captura |
+| `--set-api-key`                | Guarda a chave da API do Google no chaveiro (sem eco)   |
+| `--clear-api-key`              | Remove a chave guardada                                 |
 
 Cancelar a seleção com `Esc` encerra em silêncio, sem erro e sem consumir cota.
 
 ### Ajuste de reconhecimento
 
-| Opção | Quando usar |
-|---|---|
-| `--ocr-lang deu+eng` | O texto na tela está em outro idioma |
-| `--psm 3` | O texto está em várias colunas |
-| `--scale 4` | O texto é muito pequeno e o reconhecimento falha |
+| Opção                | Quando usar                                      |
+| -------------------- | ------------------------------------------------ |
+| `--ocr-lang deu+eng` | O texto na tela está em outro idioma             |
+| `--psm 3`            | O texto está em várias colunas                   |
+| `--scale 4`          | O texto é muito pequeno e o reconhecimento falha |
 
 ## Build e instalação
 
@@ -190,14 +190,14 @@ docs/plans/           # SPEC.md e HANDOFF.md
 
 ## Roteiro
 
-| Marco | Escopo | Tag |
-|---|---|---|
-| ~~M0~~ | Estrutura, ferramentas e CI | — |
-| ~~M1~~ | Fatia vertical em CLI: portal → Tesseract → tradução | `v0.0.1` |
-| ~~M2~~ | Tradução offline (CTranslate2 + OPUS-MT) | `v0.1.0` |
-| ~~M3~~ | Bandeja, janela de resultado e cache | `v0.2.0` |
+| Marco  | Escopo                                                | Tag      |
+| ------ | ----------------------------------------------------- | -------- |
+| ~~M0~~ | Estrutura, ferramentas e CI                           | —        |
+| ~~M1~~ | Fatia vertical em CLI: portal → Tesseract → tradução  | `v0.0.1` |
+| ~~M2~~ | Tradução offline (CTranslate2 + OPUS-MT)              | `v0.1.0` |
+| ~~M3~~ | Bandeja, janela de resultado e cache                  | `v0.2.0` |
 | **M4** | Preferências, consentimento, autostart, atalho global | `v0.3.0` |
-| M5 | Empacotamento `.deb` e pipeline de release | `v1.0.0` |
+| M5     | Empacotamento `.deb` e pipeline de release            | `v1.0.0` |
 
 ## Privacidade
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="io.github.rmorais.TranslateLinux" path="/io/github/rmorais/TranslateLinux/">
+  <schema id="io.github.reginaldomorais.TranslateLinux" path="/io/github/reginaldomorais/TranslateLinux/">
 
     <key name="target-language" type="s">
       <default>'pt'</default>

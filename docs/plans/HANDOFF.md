@@ -86,7 +86,7 @@ Ressalva de empacotamento: **`ctranslate2` não existe no APT** do Ubuntu 24.04.
 
 | ID | Pergunta | Suposição atual | Bloqueia |
 |---|---|---|---|
-| PA-02 | Owner do GitHub / nome do repositório | `rmorais/translate-linux` | M0 (nomes de schema e app ID) |
+| ~~PA-02~~ | Owner do GitHub / nome do repositório | ✅ **RESOLVIDO em 2026-08-23:** `reginaldoMorais/translate-linux`. O app ID passou a `io.github.reginaldomorais.TranslateLinux` (componente de domínio em minúsculas, por convenção) | — |
 | PA-04 | O `interactive: true` salva cópia em `~/Pictures/Screenshots`? | Não salva — **verificação humana pendente**, ver seção 6 | Nada; script pronto em `scripts/verify_portal_behaviour.py` |
 | PA-06 | Idiomas de OCR padrão | `eng` + `por` + `osd` | Nada |
 | PA-07 | Licença | MIT | M0 |

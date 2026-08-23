@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Tradutor de Tela
+GenericName=Tradutor de captura de tela
+Comment=Selecione uma região da tela e receba o texto traduzido
+Exec=translate-linux --tray
+Icon=translate-linux
+Terminal=false
+Categories=Utility;
+Keywords=tradução;traduzir;OCR;captura;tela;translate;screenshot;
+StartupNotify=false
+X-GNOME-UsesNotifications=true

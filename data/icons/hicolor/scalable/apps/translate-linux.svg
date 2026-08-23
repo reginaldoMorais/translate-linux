@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- A selection marquee, because that is the gesture the tool is built around. -->
+  <rect x="5" y="9" width="54" height="46" rx="5"
+        fill="none" stroke="currentColor" stroke-width="3"
+        stroke-dasharray="7 5" opacity="0.55"/>
+  <!-- Source glyph on the left, translated glyph on the right. -->
+  <text x="19" y="41" font-family="sans-serif" font-size="24" font-weight="600"
+        text-anchor="middle" fill="currentColor">A</text>
+  <text x="45" y="41" font-family="sans-serif" font-size="24" font-weight="600"
+        text-anchor="middle" fill="currentColor" opacity="0.75">文</text>
+  <path d="M27 34 L37 34" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M34 31 L37 34 L34 37" fill="none" stroke="currentColor"
+        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

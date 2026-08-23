@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 APP_NAME = "translate-linux"
-APP_ID = "io.github.rmorais.TranslateLinux"
+APP_ID = "io.github.reginaldomorais.TranslateLinux"
 APP_TITLE = "Translate Linux"
 
 

@@ -30,7 +30,7 @@ jobs:
             python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 \
             gir1.2-ayatanaappindicator3-0.1 gir1.2-secret-1 \
             tesseract-ocr tesseract-ocr-eng tesseract-ocr-por tesseract-ocr-osd \
-            libglib2.0-bin xvfb
+            libglib2.0-bin xvfb desktop-file-utils
 
       - name: Create the virtualenv with system site packages
         run: |
@@ -56,4 +56,6 @@ jobs:
         run: .venv/bin/mypy
 
       - name: Test
-        run: xvfb-run -a .venv/bin/pytest --cov=translate_linux --cov-report=term-missing
+        run: |
+          make schema
+          xvfb-run -a .venv/bin/pytest --cov=translate_linux --cov-report=term-missing
