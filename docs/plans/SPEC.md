@@ -3,7 +3,7 @@
 > **Status:** Rascunho aguardando aprovação explícita
 > **Autor:** Claude (Staff Engineer) — processo SDD
 > **Data:** 2026-08-23
-> **Versão do documento:** 1.3 — **a tradução offline passou a ser o provider padrão** (revisão de PA-03 por custo da API, 2026-08-23); marcos reordenados; viabilidade do motor local comprovada empiricamente
+> **Versão do documento:** 1.4 — a bandeja passa a falar StatusNotifierItem direto por D-Bus (a `libayatana-appindicator3` é GTK 3 e não convive com GTK 4); anterior: 1.3 — **a tradução offline passou a ser o provider padrão** (revisão de PA-03 por custo da API, 2026-08-23); marcos reordenados; viabilidade do motor local comprovada empiricamente
 > **Fase SDD:** 2 (Especificação) + 3 (Revisão Crítica) concluídas. **Nenhum código de produção foi escrito.**
 
 ---
@@ -98,7 +98,7 @@ Este é o dado mais determinante do design. Tudo abaixo foi **medido**, não pre
 | `org.freedesktop.portal.Notification`                 | Disponível                                                                                                              |
 | `org.freedesktop.portal.GlobalShortcuts`              | **INDISPONÍVEL**                                                                                                        |
 | Bandeja do sistema                                    | `org.kde.StatusNotifierWatcher` **ativo em `gnome-shell`** (PID 2260) via `gnome-shell-extension-zorin-appindicator 64` |
-| `libayatana-appindicator3-1`                          | `0.5.93` instalado                                                                                                      |
+| `libayatana-appindicator3-1` | `0.5.93` instalado — **porém é GTK 3 e, portanto, inutilizável neste projeto** (ver IC7) |
 | `gir1.2-ayatanaappindicator3-0.1`                     | **Não instalado** (necessário para bindings Python)                                                                     |
 | GTK4                                                  | `gir1.2-gtk-4.0` **4.14.5**                                                                                             |
 | libadwaita                                            | `gir1.2-adw-1` **1.5.0**                                                                                                |
@@ -126,6 +126,8 @@ Estas cinco constatações moldam toda a solução e invalidam abordagens ingên
 **IC5 — A bandeja funciona, mas com semântica limitada.** O `StatusNotifierWatcher` está ativo graças à extensão `zorin-appindicator` pré-instalada. Porém, no protocolo StatusNotifierItem sob GNOME, **o clique esquerdo abre o menu do indicador; não há callback confiável de "ativação" direta**. O desejo literal do usuário ("ao clicar nele será aberta a janela de seleção") não é implementável ao pé da letra sem quebrar a convenção da plataforma. Mitigação especificada em RF-07.
 
 **IC6 — Conflito de Python no ambiente de desenvolvimento.** O `python3` do `PATH` é o pyenv 3.11.6, que não enxerga o `gi` do sistema (PyGObject não é instalável de forma confiável via `pip` sem toolchain e headers). O desenvolvimento **deve** usar `/usr/bin/python3` com `venv --system-site-packages`. Isso precisa estar documentado com destaque no README, sob pena de o primeiro `import gi` falhar e travar o onboarding.
+
+**IC7 — A biblioteca de bandeja é GTK 3 e não pode ser usada.** `libayatana-appindicator3` está compilada contra `libgtk-3.so.0`, e GTK 3 e GTK 4 **não podem coexistir no mesmo processo** — verificado: importar `AyatanaAppIndicator3` após `Gtk 4.0` falha com `Requiring namespace 'Gtk' version '3.0', but '4.0' is already loaded`. Como o StatusNotifierItem é apenas um protocolo D-Bus, a saída é implementá-lo diretamente sobre GDBus, que é o que a própria `libayatana` faz por dentro. Verificado em 2026-08-23: com GTK 4 carregado, o aplicativo adquire `org.kde.StatusNotifierItem-<pid>-1`, registra-se no watcher e passa a constar em `RegisteredStatusNotifierItems`.
 
 ---
 
@@ -176,7 +178,7 @@ Um daemon de sessão em Python 3 + GTK4/libadwaita, residente na bandeja do sist
 | ------------------------ | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Toolkit nativo GNOME     | GTK4 4.14 + Adw 1.5 **já instalados**, bindings oficiais via GIR                            | `gotk4` exige **cgo** + `libgtk-4-dev`; ecossistema pequeno. Fyne evita GTK mas tem visual não-nativo | `gtk4-rs` é excelente, mas Rust do sistema é 1.75 (defasado); exige rustup |
 | Chamada ao portal D-Bus  | `Gio.DBusProxy` embutido, incluindo `Gio.DBusConnection.signal_subscribe` para o `Response` | `godbus/dbus/v5`, puro Go, muito bom                                                                  | `zbus`/`ashpd` — `ashpd` é excelente para portais                          |
-| Bandeja (SNI)            | `AyatanaAppIndicator3` via GIR (1 pacote APT a instalar)                                    | `fyne.io/systray`, puro Go, fala SNI direto                                                           | `ksni`                                                                     |
+| Bandeja (SNI) | **Protocolo D-Bus implementado à mão** — a `libayatana` é GTK 3 e conflita | `fyne.io/systray`, puro Go, fala SNI direto | `ksni` |
 | Ciclo de build           | **Nenhum** — `.deb` `arch: all`, sem compilação                                             | Binário, mas cgo reintroduz toolchain e deps de build                                                 | Compilação longa                                                           |
 | Familiaridade do usuário | Alta (declarada)                                                                            | Alta (declarada)                                                                                      | Nenhuma declarada                                                          |
 | Distribuição             | Depende de `python3-gi` etc. (**todos já presentes no Zorin 18**)                           | Binário único — vantagem **anulada** pelo cgo/GTK                                                     | Binário único, mesma ressalva                                              |
@@ -193,7 +195,7 @@ Um daemon de sessão em Python 3 + GTK4/libadwaita, residente na bandeja do sist
 | Módulo                      | Responsabilidade                                                                                              |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `app.py`                    | `Adw.Application` com `HANDLES_COMMAND_LINE`; instância única via D-Bus; ciclo de vida                        |
-| `tray.py`                   | Indicador `AyatanaAppIndicator3`, menu, detecção de `StatusNotifierWatcher`                                   |
+| `tray.py` | Implementação de `org.kde.StatusNotifierItem` + `com.canonical.dbusmenu` sobre GDBus, sem `libayatana`; detecção de `StatusNotifierWatcher` |
 | `capture/portal.py`         | Cliente do `org.freedesktop.portal.Screenshot` (assinatura do `Response` **antes** da chamada)                |
 | `capture/x11.py`            | Fallback X11 (overlay GTK4 próprio + `GdkPixbuf`), usado só se `XDG_SESSION_TYPE=x11`                         |
 | `ocr/preprocess.py`         | Pillow: upscale, escala de cinza, autocontraste, binarização                                                  |
@@ -229,6 +231,7 @@ Um daemon de sessão em Python 3 + GTK4/libadwaita, residente na bandeja do sist
 
 - **RF-07** — O sistema DEVE exibir um ícone permanente na bandeja via StatusNotifierItem. Como o clique esquerdo sob GNOME abre o menu e não permite ação direta (IC5), o **primeiro item do menu DEVE ser "Capturar e traduzir"**, tornando a ação alcançável em dois cliques. O sistema DEVE adicionalmente registrar essa ação como _secondary activate target_ (clique do meio) quando o ambiente suportar.
 - **RF-08** — O menu da bandeja DEVE conter, nesta ordem: `Capturar e traduzir`, separador, submenu `Idioma de destino` (rádio, idiomas favoritos + "Mais…"), `Histórico` (oculto se desabilitado), separador, `Preferências`, `Sobre`, `Sair`.
+- **RF-49** — A bandeja DEVE ser implementada falando `org.kde.StatusNotifierItem` e `com.canonical.dbusmenu` **diretamente sobre GDBus**. A `libayatana-appindicator3` NÃO DEVE ser usada: é GTK 3 e incompatível com a interface GTK 4 do aplicativo (IC7).
 - **RF-09** — O sistema DEVE expor a CLI `translate-linux --capture`, que aciona a captura na instância já em execução via ativação D-Bus, sem iniciar um segundo processo.
 - **RF-10** — O sistema DEVE garantir instância única: uma segunda invocação sem argumentos DEVE apenas focar/notificar a instância existente.
 - **RF-11** — O sistema DEVE oferecer, nas Preferências, um botão que registra um atalho global de teclado (padrão sugerido `<Super><Shift>T`) escrevendo em `org.gnome.settings-daemon.plugins.media-keys custom-keybindings` e apontando para `translate-linux --capture`, detectando e avisando sobre conflitos com atalhos existentes.
@@ -513,7 +516,7 @@ class TranslationProvider(Protocol):
 | ---------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `org.freedesktop.portal.Screenshot` v2         | D-Bus (sessão) | `Screenshot(s parent_window, a{sv} options) → o handle`; opções `interactive: true`, `modal: true`, `handle_token`. Resposta assíncrona via `Request.Response(u response, a{sv} results)`; `results['uri']` aponta o PNG |
 | `org.freedesktop.portal.Notification`          | D-Bus (sessão) | Notificações de erro e status                                                                                                                                                                                            |
-| `org.kde.StatusNotifierWatcher`                | D-Bus (sessão) | Ícone de bandeja, via `libayatana-appindicator3`                                                                                                                                                                         |
+| `org.kde.StatusNotifierWatcher` + `com.canonical.dbusmenu` | D-Bus (sessão) | Ícone de bandeja implementado **diretamente sobre GDBus**. O aplicativo possui `org.kde.StatusNotifierItem-<pid>-1`, expõe as propriedades da interface e chama `RegisterStatusNotifierItem` no watcher (verificado funcionando com GTK 4 em 2026-08-23) |
 | `org.freedesktop.secrets` (libsecret)          | D-Bus (sessão) | Armazenamento da chave da API                                                                                                                                                                                            |
 | `org.gnome.settings-daemon.plugins.media-keys` | GSettings      | Registro do atalho global (IC4)                                                                                                                                                                                          |
 | `tesseract` 5.3.4                              | subprocesso    | `tesseract <png> stdout -l <langs> --psm <n> tsv`                                                                                                                                                                        |
@@ -612,6 +615,7 @@ Não há requisito regulatório. A trilha auditável relevante é a de **privaci
 | R12 | Corrida na assinatura do sinal `Response` do portal causa travamento intermitente                                            | Média                    | Alto        | RF-02 torna a ordem obrigatória; teste de integração com barramento simulado                                                                                                   |
 | R13 | Qualidade do modelo offline (OPUS-MT int8) inferior à da API do Google em texto idiomático, e **mistura vocabulário pt-PT e pt-BR** ("ficheiro" e "arquivo" na mesma sessão) | **Certa** | **Alto** (promovido: agora afeta todo uso por padrão) | A origem do resultado é sinalizada (RF-48); RF-32 permite editar e retraduzir; `google_cloud_v2` continua disponível para quem precisar de mais qualidade; comparação lado a lado entra no roteiro de teste manual |
 | R14 | Modelos offline pesam ~80–100 MB por direção e `ctranslate2` não está no APT (verificado) | **Certa** | Médio | Modelos fora do `.deb`, baixados sob demanda (RF-41); `ctranslate2` em venv privado (RF-42); falha na instalação não afeta os providers online |
+| R15 | O menu da bandeja exige implementar `com.canonical.dbusmenu` à mão, protocolo verboso e mal documentado | **Alta** | Médio | O registro do item já foi verificado funcionando (IC7); o menu é o que resta. Se custar demais, um primeiro corte pode expor `ItemIsMenu=false` e tratar `Activate`, aceitando a limitação de IC5 até o menu existir |
 
 ---
 

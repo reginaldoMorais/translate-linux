@@ -66,7 +66,8 @@ Ressalva de empacotamento: **`ctranslate2` não existe no APT** do Ubuntu 24.04.
 | D-03 | Tesseract 5 via subprocesso, com pré-processamento em Pillow | Evita cgo/bindings; TSV fornece confiança por palavra | ✅ Firme |
 | ~~D-04~~ | ~~`google_cloud_v2` é o provider padrão~~ | — | ❌ **Revogada em 2026-08-23 por custo da API.** Ver D-16 |
 | D-16 | **`local_ct2` (offline) é o provider padrão.** `google_cloud_v2` continua implementado e testado, como escolha explícita; `google_free` segue desabilitado | Custo por caractere da API do Google; e o motor local provou-se rápido o bastante (0,11 s para 284 caracteres) e leve o bastante (141 MB residentes) | ✅ **Decidido pelo usuário (revisão de PA-03, 2026-08-23)** |
-| D-05 | Bandeja via `AyatanaAppIndicator3` (SNI) | `StatusNotifierWatcher` confirmado ativo via `gnome-shell-extension-zorin-appindicator` | ✅ Firme |
+| ~~D-05~~ | ~~Bandeja via `AyatanaAppIndicator3`~~ | — | ❌ **Revogada em 2026-08-23:** a biblioteca é GTK 3 e não convive com GTK 4. Ver D-17 |
+| D-17 | **Bandeja falando `org.kde.StatusNotifierItem` direto sobre GDBus**, sem `libayatana` | GTK 3 e GTK 4 não coexistem no mesmo processo; SNI é só um protocolo D-Bus. Registro verificado funcionando com GTK 4 carregado | ✅ Firme (verificado em 2026-08-23) |
 | D-06 | Autostart por XDG `~/.config/autostart` com `X-GNOME-Autostart-Delay=5` | Mais simples que systemd `--user` e herda o ambiente da sessão; o atraso evita a corrida com a extensão da bandeja | ✅ Firme |
 | D-07 | Configuração em GSettings; chave de API em libsecret | Nativo do GNOME; chave nunca em texto plano | ✅ Firme |
 | D-08 | Consentimento explícito de primeiro uso; histórico opt-in | A ferramenta lê qualquer pixel da tela, incluindo dados sensíveis | ✅ Firme |
@@ -127,9 +128,9 @@ Duas coisas exigem uma sessão gráfica real e uma pessoa na frente da tela:
 
 Trabalhar em `feature/*` a partir de `develop`.
 
-1. **`sudo apt install gir1.2-ayatanaappindicator3-0.1`** — ainda não instalado; nada da bandeja roda sem ele.
+1. ~~Instalar `gir1.2-ayatanaappindicator3-0.1`~~ — **não serve**: é GTK 3 (ver diário de 2026-08-23). O pacote está instalado mas não será usado.
 2. `Adw.Application` com `HANDLES_COMMAND_LINE` para instância única e ativação D-Bus (RF-09, RF-10), preservando as flags atuais da CLI.
-3. `tray.py` com `AyatanaAppIndicator3`; detectar ausência do `StatusNotifierWatcher` (RF-12). Lembrar: sob GNOME o clique esquerdo abre o menu, então "Capturar e traduzir" é o primeiro item (D-11).
+3. `tray.py` falando SNI direto sobre GDBus (RF-49). O **registro do item já está verificado**; o que falta provar é `com.canonical.dbusmenu` para o menu (R15). Detectar ausência do `StatusNotifierWatcher` (RF-12). Sob GNOME o clique esquerdo abre o menu, então "Capturar e traduzir" é o primeiro item (D-11).
 4. `ui/result.py`: tradução em destaque, original recolhido, copiar, trocar idioma e **editar o original para retraduzir** (RF-32) — a válvula de escape para erro de OCR, ainda mais importante agora que o modelo local erra mais que a API.
 5. Threading obrigatório: OCR e tradução fora da thread do GTK, com `GLib.idle_add` (RF-34). O `LocalTranslator` já tem lock interno.
 6. Chamar `LocalTranslator.unload_if_idle()` num timer do GLib — o método existe e está testado desde o M2, mas **ninguém o chama ainda**; sem isso o modelo fica residente para sempre (RF-43, NFR-P3).
@@ -340,3 +341,15 @@ tesseract --list-langs
 **Ponta solta consciente:** `LocalTranslator.unload_if_idle()` está implementado e testado, mas **nada o chama** — não há main loop na CLI. O M3 precisa ligá-lo a um timer do GLib, senão o modelo fica residente indefinidamente.
 
 **Desvio da SPEC a registrar:** a RF-41 pede verificação de checksum, mas o índice do Argos **não publica hash algum** (verificado: os campos são `package_version`, `from_code`, `to_code`, `links`, `code`). A integridade é estabelecida validando a estrutura do zip, recusando caminhos que escapem do destino, e gravando em `install.json` o digest observado na instalação — o que permite detectar corrupção posterior em disco, mas não adulteração na origem.
+
+### 2026-08-23 — A biblioteca de bandeja não serve: GTK 3 contra GTK 4
+
+**O que aconteceu:** ao preparar o M3, a descrição do pacote `gir1.2-ayatanaappindicator3-0.1` chamou atenção — "GTK-3+ version". Verificado: `libayatana-appindicator3.so.1` está linkada contra `libgtk-3.so.0`, e importá-la depois de `Gtk 4.0` falha com `Requiring namespace 'Gtk' version '3.0', but '4.0' is already loaded`.
+
+**Por que passou despercebido na Fase 1:** na descoberta eu confirmei que o typelib existia e que o `StatusNotifierWatcher` estava ativo, mas **não verifiquei contra qual GTK a biblioteca estava linkada**. A conclusão certa ("a bandeja funciona neste sistema") escondia uma premissa errada ("logo, podemos usar esta biblioteca").
+
+**Saída, já verificada:** StatusNotifierItem é apenas um protocolo D-Bus — a `libayatana` é uma conveniência sobre ele. Com GTK 4 carregado no mesmo processo, o spike adquiriu `org.kde.StatusNotifierItem-<pid>-1`, registrou-se via `RegisterStatusNotifierItem` e passou a constar em `RegisteredStatusNotifierItems` do watcher. Virou **RF-49** e **D-17**.
+
+**O que ainda NÃO foi verificado:** o menu. O SNI delega o menu a `com.canonical.dbusmenu`, protocolo verboso que o spike não implementou. Esse é o risco **R15** do M3 — o análogo do R12 no M1, e deve ser atacado primeiro pelo mesmo motivo.
+
+**Alternativas descartadas:** rebaixar tudo para GTK 3 (perde libadwaita 1.5 e contradiz D-02); processo auxiliar em GTK 3 só para a bandeja (dois toolkits e IPC para um ícone).
