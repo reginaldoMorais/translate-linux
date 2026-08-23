@@ -102,7 +102,7 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
     def _models_group(self) -> Adw.PreferencesGroup:
         group = Adw.PreferencesGroup(title="Modelos offline")
-        group.set_description(f"Motor: {engine.describe()}")
+        group.set_description(messages.escape_markup(f"Motor: {engine.describe()}"))
 
         installed = models.installed()
         if not installed:
@@ -117,7 +117,9 @@ class PreferencesWindow(Adw.PreferencesWindow):
                 title=f"{messages.language_name(model.from_code)} → "
                 f"{messages.language_name(model.to_code)}"
             )
-            row.set_subtitle(f"versão {model.version} · {size / 1e6:.0f} MB")
+            row.set_subtitle(
+                messages.escape_markup(f"versão {model.version} · {size / 1e6:.0f} MB")
+            )
 
             remove = Gtk.Button(label="Remover", valign=Gtk.Align.CENTER)
             remove.add_css_class("destructive-action")
@@ -238,7 +240,9 @@ class PreferencesWindow(Adw.PreferencesWindow):
             self._on_changed()
 
     def _toast(self, text: str) -> None:
-        self.add_toast(Adw.Toast(title=text, timeout=3))
+        # Toast titles are parsed as Pango markup; anything with angle brackets
+        # would render as an empty toast (see messages.escape_markup).
+        self.add_toast(Adw.Toast(title=messages.escape_markup(text), timeout=3))
 
     def _current_shortcut(self) -> str:
         try:

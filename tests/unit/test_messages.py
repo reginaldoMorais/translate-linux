@@ -13,6 +13,7 @@ from translate_linux.translate.local_ct2 import ModelNotInstalled
 from translate_linux.ui.messages import (
     confidence_note,
     describe_error,
+    escape_markup,
     language_name,
     provider_label,
 )
@@ -122,3 +123,45 @@ class TestDescribeError:
     )
     def test_every_message_is_non_empty(self, error: Exception) -> None:
         assert describe_error(error).strip()
+
+
+class TestEscapeMarkup:
+    """Adwaita parses several labels as Pango markup. Text it cannot parse is
+    not shown badly -- it is not shown at all, which is how a shortcut turned
+    a confirmation toast into an empty box with a close button."""
+
+    def test_a_keyboard_shortcut_survives(self) -> None:
+        escaped = escape_markup("Atalho registrado: <Super><Shift>t")
+        assert "&lt;Super&gt;" in escaped
+        assert "<Super>" not in escaped
+
+    def test_the_escaped_text_parses_as_markup(self) -> None:
+        import gi
+
+        gi.require_version("Pango", "1.0")
+        from gi.repository import Pango
+
+        # Raises GLib.Error if the markup is invalid; that is the assertion.
+        Pango.parse_markup(escape_markup("<Super><Shift>t"), -1, "\0")
+
+    def test_the_unescaped_text_would_not_parse(self) -> None:
+        """Documents the defect this guards against."""
+        import gi
+
+        gi.require_version("Pango", "1.0")
+        from gi.repository import GLib, Pango
+
+        with pytest.raises(GLib.Error):
+            Pango.parse_markup("<Super><Shift>t", -1, "\0")
+
+    def test_ampersands_are_escaped(self) -> None:
+        assert escape_markup("a & b") == "a &amp; b"
+
+    def test_ordinary_text_is_untouched(self) -> None:
+        assert escape_markup("Atalho removido") == "Atalho removido"
+
+    def test_accented_text_is_preserved(self) -> None:
+        assert escape_markup("Tradução concluída") == "Tradução concluída"
+
+    def test_empty_text_is_handled(self) -> None:
+        assert escape_markup("") == ""

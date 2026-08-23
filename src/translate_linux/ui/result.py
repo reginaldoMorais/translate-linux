@@ -160,7 +160,7 @@ class ResultWindow(Adw.ApplicationWindow):
                 translation.provider, from_cache=translation.from_cache
             )
             note = f"{note} · {source} → {messages.language_name(translation.target)} · {origin}"
-        self._meta_group.set_description(note)
+        self._meta_group.set_description(messages.escape_markup(note))
 
         self._stack.set_visible_child_name("result")
 

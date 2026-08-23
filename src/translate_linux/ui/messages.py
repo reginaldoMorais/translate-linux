@@ -8,20 +8,30 @@ says what happened and what to do about it.
 
 from __future__ import annotations
 
-from translate_linux.capture.portal import CaptureCancelled, CaptureError, PortalUnavailable
-from translate_linux.ocr.tesseract import (
+import gi
+
+gi.require_version("Gio", "2.0")
+
+from gi.repository import GLib  # noqa: E402
+
+from translate_linux.capture.portal import (  # noqa: E402
+    CaptureCancelled,
+    CaptureError,
+    PortalUnavailable,
+)
+from translate_linux.ocr.tesseract import (  # noqa: E402
     TesseractLanguageMissing,
     TesseractNotFound,
     TesseractTimeout,
 )
-from translate_linux.orchestrator import NoTextRecognised
-from translate_linux.translate.base import (
+from translate_linux.orchestrator import NoTextRecognised  # noqa: E402
+from translate_linux.translate.base import (  # noqa: E402
     TranslationAuthError,
     TranslationRateLimited,
     TranslationUnavailable,
 )
-from translate_linux.translate.engine import EngineNotInstalled
-from translate_linux.translate.local_ct2 import ModelNotInstalled
+from translate_linux.translate.engine import EngineNotInstalled  # noqa: E402
+from translate_linux.translate.local_ct2 import ModelNotInstalled  # noqa: E402
 
 APP_TITLE = "Tradutor de Tela"
 
@@ -140,3 +150,15 @@ def confidence_note(mean_confidence: float, ocr_languages: str) -> str:
     """
     languages = ", ".join(language_name(code) for code in ocr_languages.split("+"))
     return f"Reconhecimento {mean_confidence:.0f}% · {languages}"
+
+
+def escape_markup(text: str) -> str:
+    """Make ``text`` safe for a widget that parses Pango markup.
+
+    Several Adwaita widgets -- toast titles, group descriptions, row subtitles
+    -- interpret their text as markup. A keyboard shortcut such as
+    ``<Super><Shift>t`` therefore looks like an unknown tag, Pango refuses to
+    parse it, and the widget renders **nothing at all**: an empty toast with a
+    close button and no message. Escaping is what keeps such text visible.
+    """
+    return str(GLib.markup_escape_text(text))
