@@ -87,6 +87,9 @@ class ResultWindow(Adw.ApplicationWindow):
         translation_group.add(self._framed(self._translation_view, height=160))
         page.add(translation_group)
 
+        # Carries only a description line. Never add rows here: emptying an
+        # AdwPreferencesGroup by walking get_first_child() reaches Adwaita's
+        # own internal box, and removing it fails while the loop spins forever.
         self._meta_group = Adw.PreferencesGroup()
         page.add(self._meta_group)
 
@@ -149,9 +152,6 @@ class ResultWindow(Adw.ApplicationWindow):
         self._set_text(
             self._translation_view, translation.text if translation else outcome.original
         )
-
-        while (row := self._meta_group.get_first_child()) is not None:
-            self._meta_group.remove(row)
 
         note = messages.confidence_note(outcome.mean_confidence, outcome.ocr_languages)
         if translation is not None:

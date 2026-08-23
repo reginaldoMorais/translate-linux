@@ -41,6 +41,7 @@ dev = [
   "mypy>=1.8",
   "pytest>=8.0",
   "pytest-cov>=4.1",
+  "pytest-timeout>=2.3",
   "ruff>=0.5",
   "types-requests>=2.31",
 ]
@@ -123,6 +124,9 @@ disallow_subclassing_any = false
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
+# A hung test must fail rather than block: an infinite loop inside a GTK render
+# once killed the application, and a suite that waits forever hides that.
+timeout = 60
 addopts = ["-q", "--strict-markers", "--strict-config", "-m", "not network"]
 markers = [
   "network: hits a real third-party service; never run in CI",
