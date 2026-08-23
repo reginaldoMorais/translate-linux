@@ -123,7 +123,7 @@ class TestInstallRobustness:
             seen.append(command)
             return subprocess.CompletedProcess(command, 0, "", "")
 
-        monkeypatch.setattr(engine.subprocess, "run", fake_run)
+        monkeypatch.setattr(subprocess, "run", fake_run)
         monkeypatch.setattr(engine, "site_packages_of", lambda _v: None)
 
         with pytest.raises(engine.EngineInstallFailed):
@@ -139,7 +139,7 @@ class TestInstallRobustness:
                 command, 1, "", "ensurepip is not available. On Debian systems..."
             )
 
-        monkeypatch.setattr(engine.subprocess, "run", fake_run)
+        monkeypatch.setattr(subprocess, "run", fake_run)
 
         with pytest.raises(engine.EngineInstallFailed, match="apt install python3-venv"):
             engine.install(tmp_path / "venv")
@@ -150,7 +150,7 @@ class TestInstallRobustness:
         def fake_run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
             return subprocess.CompletedProcess(command, 1, "", "No module named pip")
 
-        monkeypatch.setattr(engine.subprocess, "run", fake_run)
+        monkeypatch.setattr(subprocess, "run", fake_run)
 
         with pytest.raises(engine.EngineInstallFailed, match="apt install python3-pip"):
             engine.install(tmp_path / "venv")
@@ -164,7 +164,7 @@ class TestInstallRobustness:
             target.mkdir(parents=True, exist_ok=True)
             return subprocess.CompletedProcess(command, 1, "", "boom")
 
-        monkeypatch.setattr(engine.subprocess, "run", fake_run)
+        monkeypatch.setattr(subprocess, "run", fake_run)
 
         with pytest.raises(engine.EngineInstallFailed):
             engine.install(target)
@@ -176,9 +176,7 @@ class TestVerify:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            engine.subprocess,
-            "run",
-            lambda c, **_k: subprocess.CompletedProcess(c, 0, "", ""),
+            subprocess, "run", lambda c, **_k: subprocess.CompletedProcess(c, 0, "", "")
         )
         engine.verify(tmp_path / "venv")  # must not raise
 
@@ -187,7 +185,7 @@ class TestVerify:
     ) -> None:
         """Directories existing is not the same as the engine working."""
         monkeypatch.setattr(
-            engine.subprocess,
+            subprocess,
             "run",
             lambda c, **_k: subprocess.CompletedProcess(
                 c, 1, "", "ImportError: libstdc++.so.6: version not found"
