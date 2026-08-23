@@ -74,7 +74,13 @@ select = [
   "UP",  # pyupgrade
   "W",   # pycodestyle warnings
 ]
-ignore = ["E501"] # line length is enforced by the formatter
+ignore = [
+  "E501",  # line length is enforced by the formatter
+  # N818 wants every exception to end in "Error". CaptureCancelled and
+  # NoTextRecognised are ordinary outcomes rather than failures, and the suffix
+  # would misrepresent them; the names are chosen deliberately.
+  "N818",
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ARG"] # pytest fixtures are frequently injected but unused
@@ -87,8 +93,10 @@ warn_unreachable = true
 pretty = true
 
 [[tool.mypy.overrides]]
-# PyGObject ships no type stubs; introspection is resolved at runtime.
-module = ["gi.*"]
+# Neither PyGObject nor Pillow 10.2 ships type information: PyGObject resolves
+# everything through introspection at runtime, and Pillow only gained a
+# py.typed marker in a later release.
+module = ["gi.*", "PIL.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
