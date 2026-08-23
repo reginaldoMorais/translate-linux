@@ -10,10 +10,10 @@
 | Campo | Valor |
 |---|---|
 | **Fase SDD** | Em implementação. SPEC **v1.3** — provider padrão mudou para offline |
-| **Marco atual** | **M1 concluído**, tag `v0.0.1`. Próximo: **M2 = provider offline** (reordenado) |
+| **Marco atual** | **M2 concluído**, tag `v0.1.0`. Próximo: M3 (bandeja e janela GTK) |
 | **Bloqueado por** | Nada |
-| **Código de produção** | Pipeline completo em CLI. **211 testes**, cobertura 88%, mypy strict e ruff limpos |
-| **Git** | 9 commits em `develop`, tag `v0.0.1`. **Sem remoto configurado** |
+| **Código de produção** | Pipeline completo em CLI **traduzindo offline**. **315 testes**, mypy strict e ruff limpos |
+| **Git** | 18 commits em `develop`, tags `v0.0.1` e `v0.1.0`. **Sem remoto configurado** |
 | **Última atualização** | 2026-08-23 |
 
 ### Progresso por marco
@@ -22,8 +22,8 @@
 |---|---|---|---|
 | M0 | `git init`, estrutura, `pyproject.toml`, CI de lint/testes, README inicial | — | ✅ **Concluído em 2026-08-23** |
 | M1 | Fatia vertical: CLI `--capture` → portal → tesseract → `google_cloud_v2` → stdout | `v0.0.1` | ✅ **Concluído em 2026-08-23** |
-| **M2** | **Provider offline `local_ct2`** + assistente de primeira execução | `v0.1.0` | ⬜ Próximo |
-| M3 | Bandeja + janela GTK4 + cache | `v0.2.0` | ⬜ Não iniciado |
+| M2 | **Provider offline `local_ct2`** + comandos de instalação | `v0.1.0` | ✅ **Concluído em 2026-08-23** |
+| **M3** | Bandeja + janela GTK4 + cache | `v0.2.0` | ⬜ Próximo |
 | M4 | Preferências, consentimento (só online), autostart, atalho global, `--doctor` | `v0.3.0` | ⬜ Não iniciado |
 | M5 | `.deb` + workflow de release + README completo + roteiro manual | `v1.0.0` | ⬜ Não iniciado |
 
@@ -123,19 +123,22 @@ Duas coisas exigem uma sessão gráfica real e uma pessoa na frente da tela:
 1. **Fechar PA-04/R3:** rodar `.venv/bin/python scripts/verify_portal_behaviour.py`, selecionar uma região e ler o veredito. Ele responde se o `interactive: true` deixa cópia em `~/Pictures/Screenshots` ou no clipboard. **Registrar o resultado aqui e na SPEC.**
 2. **Primeira captura real ponta a ponta:** `.venv/bin/translate-linux --set-api-key` e depois `--capture`. Até aqui o caminho portal→arquivo só foi exercitado contra um portal falso, e a tradução só contra uma sessão HTTP falsa.
 
-### M2 — provider offline `local_ct2` (reordenado, era M4)
+### M3 — bandeja, janela de resultado e cache
 
-Trabalhar em `feature/local-translation` a partir de `develop`. **A viabilidade já está provada** (seção 9); o que falta é transformar o experimento em código de produção.
+Trabalhar em `feature/*` a partir de `develop`.
 
-1. `translate/models.py` — índice, download com progresso e checksum, extração do `.argosmodel` **descartando `stanza/`**, instalação em `~/.local/share/translate-linux/models/<origem>-<destino>/`, listagem e remoção.
-2. `translate/local_ct2.py` — provider implementando o mesmo `TranslationProvider`. Pontos não-óbvios já descobertos:
-   - **Não usar `SentencePieceProcessor.decode()`**: deixa `U+2581` na saída. Usar `"".join(tokens).replace("\u2581", " ").strip()` (RF-47).
-   - Traduzir sentença a sentença via `translate_batch`, reaproveitando `chunking.py` para as fronteiras.
-   - Carregamento preguiçoso e descarte após 10 min de ociosidade (RF-43).
-3. `setup/bootstrap.py` — assistente que instala `ctranslate2` em venv privado e baixa o modelo padrão numa etapa só (RF-46).
-4. Trocar o padrão do provider para `local_ct2`; `--capture` passa a funcionar sem nenhuma chave.
-5. Testes: destokenização, seleção de modelo, modelo ausente, checksum, descarregamento por ociosidade. Integração marcada para pular quando o modelo não estiver instalado.
-6. Tag `v0.1.0`.
+1. **`sudo apt install gir1.2-ayatanaappindicator3-0.1`** — ainda não instalado; nada da bandeja roda sem ele.
+2. `Adw.Application` com `HANDLES_COMMAND_LINE` para instância única e ativação D-Bus (RF-09, RF-10), preservando as flags atuais da CLI.
+3. `tray.py` com `AyatanaAppIndicator3`; detectar ausência do `StatusNotifierWatcher` (RF-12). Lembrar: sob GNOME o clique esquerdo abre o menu, então "Capturar e traduzir" é o primeiro item (D-11).
+4. `ui/result.py`: tradução em destaque, original recolhido, copiar, trocar idioma e **editar o original para retraduzir** (RF-32) — a válvula de escape para erro de OCR, ainda mais importante agora que o modelo local erra mais que a API.
+5. Threading obrigatório: OCR e tradução fora da thread do GTK, com `GLib.idle_add` (RF-34). O `LocalTranslator` já tem lock interno.
+6. Chamar `LocalTranslator.unload_if_idle()` num timer do GLib — o método existe e está testado desde o M2, mas **ninguém o chama ainda**; sem isso o modelo fica residente para sempre (RF-43, NFR-P3).
+7. `translate/cache.py`: SQLite com chave `sha256(texto‖origem‖destino‖provider)`, expurgo LRU (RF-28).
+8. Tag `v0.2.0`.
+
+### Decisão pendente que o M3 força
+
+**Idioma da interface.** A CLI está em inglês; a SPEC (FE9) pede pt-BR na v1. O M3 traz a primeira UI de verdade, então é a hora de decidir e aplicar por inteiro — gettext com tudo traduzido, ou assumir inglês. Não deixar pela metade.
 
 ### Pendências de baixo risco
 
@@ -315,3 +318,25 @@ tesseract --list-langs
 **Efeito colateral bom:** com o padrão offline, nada sai da máquina, então **R6 caiu para verde** e o diálogo de consentimento (RF-35) deixa de aparecer para quem nunca escolher um provider online.
 
 **Estado:** SPEC v1.3 e marcos reordenados (M2 = offline, M3 = bandeja/UI). Nenhum código de produção escrito para o M2 ainda.
+
+### 2026-08-23 — M2 concluído (tag `v0.1.0`)
+
+**Entregue:** tradução offline funcionando e **como padrão**. `--capture` agora traduz sem chave, sem rede e sem custo.
+
+**Módulos novos:** `translate/engine.py` (localiza e carrega o venv privado), `translate/models.py` (índice, download, extração, instalação, remoção), `translate/local_ct2.py` (o provider), `tests/unit/conftest.py` (guarda contra portal real).
+
+**Comandos novos:** `--install-engine`, `--install-model PAR`, `--list-models`, `--provider {local,google}`, `--source`.
+
+**Gates:** ruff limpo, mypy `--strict` em 37 arquivos, **315 testes** passando.
+
+**Três bugs reais encontrados e corrigidos durante o M2:**
+
+1. **Estrutura de parágrafo se perdia.** `split_text` só corta quando o texto excede o limite, então uma captura curta de dois parágrafos ia ao modelo como uma string só e voltava como uma linha, sem a linha em branco. Criado `split_sentences`, que sempre corta em fronteira de parágrafo e sentença. **Descoberto testando manualmente, não pelos testes** — os testes usavam textos longos o bastante para serem cortados de qualquer jeito.
+2. **`restore_padding` duplicava chunks só de espaço.** Nunca dispararia na prática (esses chunks são filtrados), mas a função estava errada. Pego por um teste de borda.
+3. **`PROVIDER_NAME` renomeado deixou `--set-api-key` e `--clear-api-key` quebrados** com `NameError`. Pego pelo ruff, não pelos testes — esses comandos estavam descobertos. Agora têm testes.
+
+**Incidente que virou salvaguarda:** ao trocar o padrão para offline, um teste unitário que antes retornava cedo (por falta de chave) passou a executar o pipeline inteiro e **abriu o seletor de região real na tela**, capturando conteúdo de verdade durante a suíte. Agora `tests/unit/conftest.py` tem uma fixture autouse que faz qualquer teste unitário falhar imediatamente ao tocar o portal real.
+
+**Ponta solta consciente:** `LocalTranslator.unload_if_idle()` está implementado e testado, mas **nada o chama** — não há main loop na CLI. O M3 precisa ligá-lo a um timer do GLib, senão o modelo fica residente indefinidamente.
+
+**Desvio da SPEC a registrar:** a RF-41 pede verificação de checksum, mas o índice do Argos **não publica hash algum** (verificado: os campos são `package_version`, `from_code`, `to_code`, `links`, `code`). A integridade é estabelecida validando a estrutura do zip, recusando caminhos que escapem do destino, e gravando em `install.json` o digest observado na instalação — o que permite detectar corrupção posterior em disco, mas não adulteração na origem.
