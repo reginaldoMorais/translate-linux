@@ -9,17 +9,18 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase SDD** | Fase 2 + Fase 3 concluídas. SPEC em **v1.2**, com **todas as perguntas bloqueantes resolvidas** |
-| **Marco atual** | Nenhum. Pré-M0 |
-| **Bloqueado por** | **Aprovação explícita da SPEC v1.2** — único item pendente |
-| **Código de produção** | **Nenhum escrito** (correto para esta fase) |
+| **Fase SDD** | Especificação aprovada (SPEC **v1.2**). Em **implementação** |
+| **Marco atual** | **M0 concluído.** Próximo: M1 |
+| **Bloqueado por** | Nada |
+| **Código de produção** | Esqueleto do M0 em `src/translate_linux/`; 4 testes passando; lint, tipos e testes verdes |
+| **Git** | Inicializado. `main` e `develop` no commit `2bdbb51`. Sem remoto configurado |
 | **Última atualização** | 2026-08-23 |
 
 ### Progresso por marco
 
 | Marco | Escopo | Tag | Estado |
 |---|---|---|---|
-| M0 | `git init`, estrutura, `pyproject.toml`, CI de lint/testes, README inicial | — | ⬜ Não iniciado |
+| M0 | `git init`, estrutura, `pyproject.toml`, CI de lint/testes, README inicial | — | ✅ **Concluído em 2026-08-23** |
 | M1 | Fatia vertical: CLI `--capture` → portal → tesseract → `google_cloud_v2` → stdout | `v0.0.1` | ⬜ Não iniciado |
 | M2 | Bandeja + janela GTK4 + normalização + cache | `v0.1.0` | ⬜ Não iniciado |
 | M3 | Preferências, consentimento, autostart, atalho global, provider oficial, `--doctor` | `v0.2.0` | ⬜ Não iniciado |
@@ -114,23 +115,21 @@ Ressalva de empacotamento: **`ctranslate2` não existe no APT** do Ubuntu 24.04.
 
 ## 6. Próximos passos
 
-**Imediato (bloqueado):** aprovação explícita da SPEC v1.1.
+**M1 — a fatia vertical que compra informação.** Trabalhar na branch `develop` (ou `feature/*` a partir dela), nesta ordem:
 
-**Ao aprovar — M0:**
-1. `git init`, branch `develop` (GitFlow), `.gitignore` de Python, LICENSE (PA-07).
-2. Esqueleto do projeto e `pyproject.toml` conforme a estrutura do SPEC.
-3. `make dev-setup` usando `/usr/bin/python3 -m venv --system-site-packages` (contorna IC6).
-4. `ci.yml` com ruff + mypy + pytest sobre `ubuntu-24.04`.
+1. **`make system-deps`** — o `tesseract` ainda NÃO está instalado nesta máquina; nada do M1 roda sem ele.
+2. `capture/portal.py` — **assinar o sinal `Response` ANTES de chamar `Screenshot()`** (RF-02). Primeiro item porque R12 é o risco de maior custo se descoberto tarde.
+3. **Validar PA-04/R3 no mesmo spike:** o `interactive: true` deixa cópia em `~/Pictures/Screenshots` ou no clipboard? Registrar o resultado aqui e na SPEC.
+4. `ocr/preprocess.py` (Pillow: upscale 3×, cinza, autocontraste) + `ocr/tesseract.py` (subprocesso, saída TSV com confiança).
+5. `text/normalize.py` — de-hifenização, junção de linhas, NFC. **É o módulo mais testável do projeto; comece pelos testes.**
+6. `translate/base.py` (Protocol) + `translate/google_cloud.py` + chave no libsecret.
+7. CLI `--capture` imprimindo em stdout; sem bandeja e sem GUI.
+8. Testes unitários de toda lógica pura (obrigatório por `CLAUDE.md`) e `make check` verde.
+9. Tag `v0.0.1`.
 
-**M1 — a fatia vertical que compra informação:**
-5. `capture/portal.py` **com a assinatura do sinal antes da chamada** (RF-02) — a primeira coisa a validar.
-6. **Verificar PA-04/R3:** o `interactive` deixa arquivo em `~/Pictures/Screenshots`?
-7. `ocr/tesseract.py` + `ocr/preprocess.py` (após instalar os pacotes do tesseract, ver seção 8).
-8. `translate/google_cloud.py` + chave no libsecret + CLI `--capture` imprimindo em stdout.
-9. Testes unitários de tudo que for lógica pura (obrigatório por `CLAUDE.md`).
-10. Tag `v0.0.1`.
-
-> **Pré-requisito humano do M1:** ✅ resolvido — o usuário confirmou em 2026-08-23 que providenciará a chave da Cloud Translation API. Ela só é necessária no passo 8.
+> **Pré-requisito humano:** chave da Cloud Translation API — o usuário confirmou que providencia. Só é necessária no passo 6.
+> **Decisão pendente de baixo risco:** PA-02 (owner do repositório). O `pyproject.toml` já assume `github.com/rmorais/translate-linux`; ajustar antes de criar o schema GSettings no M3, se divergir.
+> **Sem remoto git configurado:** `git push` e a CI do GitHub só funcionam depois de criar o repositório remoto.
 
 ---
 
@@ -233,3 +232,25 @@ tesseract --list-langs
 **Suposições que valem até aviso em contrário:** app ID `io.github.rmorais.TranslateLinux` (PA-02) e licença MIT (PA-07), ambas necessárias no M0.
 
 **Estado:** aguardando a aprovação explícita da v1.2 para iniciar o M0. Nenhum código escrito, nenhum commit feito.
+
+### 2026-08-23 — M0 concluído
+
+**Aprovação:** o usuário aprovou a SPEC v1.2. Implementação liberada.
+
+**Entregue:**
+- `git init` com `main` e `develop` (GitFlow), commit `2bdbb51` em Conventional Commits. **Sem remoto configurado** — o `git push` ainda não é possível.
+- Layout `src/`, com `translate_linux` e os subpacotes `capture`, `ocr`, `text`, `translate` e `ui` contendo apenas o contrato de responsabilidade (sem stubs falsos).
+- `cli.py` funcional com `--version`; entry point `translate-linux` e `python -m translate_linux` ambos verificados.
+- `pyproject.toml`: setuptools, `requires-python >=3.10`, versão derivada de `translate_linux.__version__` (contrato que o release do M5 valida contra a tag).
+- Ferramentas: ruff (lint + format), mypy `strict`, pytest com marcadores `network`, `integration` e `ui`; `network` fica fora da execução padrão.
+- `Makefile` com `.RECIPEPREFIX := >`, e `dev-setup` fixando `/usr/bin/python3 -m venv --system-site-packages` — a mitigação de IC6/R7.
+- `.github/workflows/ci.yml` em `ubuntu-24.04`, replicando o `make check` e reportando o ambiente resolvido.
+- `README.md`, `LICENSE` (MIT), `CHANGELOG.md`, `.gitignore`.
+
+**Resultado dos quality gates:** `ruff check` e `ruff format --check` limpos; `mypy --strict` sem erros em 9 arquivos; **4 testes passando**; cobertura 86% (o descoberto é `__main__.py`, que só roda como subprocesso).
+
+**Achado durante o M0:** o `ruff format` tenta formatar blocos Python embutidos em Markdown e reprovava a `SPEC.md`. Resolvido com `extend-exclude = ["docs"]` — documentação é prosa, não código-fonte.
+
+**Confirmado na prática:** o venv com `--system-site-packages` criado por `/usr/bin/python3` enxerga o PyGObject (GTK 4.14). A mitigação de IC6 funciona.
+
+**Estado:** M0 fechado, working tree limpa na branch `develop`. Pronto para o M1.
