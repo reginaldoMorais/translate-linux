@@ -9,8 +9,8 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase SDD** | Especificação aprovada (SPEC **v1.2**). Em **implementação** |
-| **Marco atual** | **M1 concluído**, tag `v0.0.1`. Próximo: M2 |
+| **Fase SDD** | Em implementação. SPEC **v1.3** — provider padrão mudou para offline |
+| **Marco atual** | **M1 concluído**, tag `v0.0.1`. Próximo: **M2 = provider offline** (reordenado) |
 | **Bloqueado por** | Nada |
 | **Código de produção** | Pipeline completo em CLI. **211 testes**, cobertura 88%, mypy strict e ruff limpos |
 | **Git** | 9 commits em `develop`, tag `v0.0.1`. **Sem remoto configurado** |
@@ -22,9 +22,9 @@
 |---|---|---|---|
 | M0 | `git init`, estrutura, `pyproject.toml`, CI de lint/testes, README inicial | — | ✅ **Concluído em 2026-08-23** |
 | M1 | Fatia vertical: CLI `--capture` → portal → tesseract → `google_cloud_v2` → stdout | `v0.0.1` | ✅ **Concluído em 2026-08-23** |
-| M2 | Bandeja + janela GTK4 + normalização + cache | `v0.1.0` | ⬜ Não iniciado |
-| M3 | Preferências, consentimento, autostart, atalho global, provider oficial, `--doctor` | `v0.2.0` | ⬜ Não iniciado |
-| M4 | Provider offline `local_ct2` + download de modelos sob demanda | `v0.3.0` | ⬜ Não iniciado |
+| **M2** | **Provider offline `local_ct2`** + assistente de primeira execução | `v0.1.0` | ⬜ Próximo |
+| M3 | Bandeja + janela GTK4 + cache | `v0.2.0` | ⬜ Não iniciado |
+| M4 | Preferências, consentimento (só online), autostart, atalho global, `--doctor` | `v0.3.0` | ⬜ Não iniciado |
 | M5 | `.deb` + workflow de release + README completo + roteiro manual | `v1.0.0` | ⬜ Não iniciado |
 
 ---
@@ -51,7 +51,7 @@ Três candidatos foram investigados de fato, não presumidos:
 |---|---|
 | **Apertium** (no APT, leve, baseado em regras) | ❌ **Não tem par inglês↔português.** Verificado: só existem `es-pt`, `pt-gl`, `por-cat`. Chegar a en→pt exigiria pivô duplo `eng→spa→por`, com erro composto sobre uma base já mediana |
 | **Argos Translate** (PyPI, neural, boa qualidade) | ❌ Depende de `stanza==1.10.1` → **`torch`** e de `spacy` (verificado no PyPI). Centenas de MB a alguns GB de dependências para um utilitário de bandeja |
-| **CTranslate2 + SentencePiece + modelos OPUS-MT int8** | ✅ **Escolhido.** É o motor que o Argos usa por dentro, sem a cauda de dependências. Wheel de 39,5 MB; deps só `numpy`/`pyyaml`; `python3-sentencepiece` está no APT; modelo ~80–100 MB por direção |
+| **CTranslate2 + SentencePiece + modelos OPUS-MT int8** | ✅ **Escolhido e comprovado na prática em 2026-08-23** (ver seção 9). Wheel de 39,5 MB; deps só `numpy`/`pyyaml`; par `en→pt` v1.9 com 66 MB comprimido e 82 MB em disco |
 
 Ressalva de empacotamento: **`ctranslate2` não existe no APT** do Ubuntu 24.04. Por isso ele fica fora do `Depends:` do `.deb` e é instalado sob demanda em venv privado (RF-42), com o suporte offline sendo totalmente opt-in.
 
@@ -64,7 +64,8 @@ Ressalva de empacotamento: **`ctranslate2` não existe no APT** do Ubuntu 24.04.
 | D-01 | Captura via `org.freedesktop.portal.Screenshot` com `interactive: true` | Único caminho viável em Wayland; entrega a UI nativa de seleção sem código próprio | ✅ Firme |
 | D-02 | **Python 3.12 + PyGObject (GTK4 + libadwaita)** | GTK 4.14 e Adw 1.5 já instalados; sem etapa de compilação; padrão da plataforma GNOME | ✅ **Aprovado pelo usuário (PA-01, 2026-08-23)** |
 | D-03 | Tesseract 5 via subprocesso, com pré-processamento em Pillow | Evita cgo/bindings; TSV fornece confiança por palavra | ✅ Firme |
-| D-04 | **`google_cloud_v2` (API oficial) é o provider padrão**; `google_free` vira opt-in desabilitado | Elimina o risco de ToS e de bloqueio por IP que o endpoint não-oficial trazia | ✅ **Aprovado pelo usuário (PA-03, 2026-08-23)** |
+| ~~D-04~~ | ~~`google_cloud_v2` é o provider padrão~~ | — | ❌ **Revogada em 2026-08-23 por custo da API.** Ver D-16 |
+| D-16 | **`local_ct2` (offline) é o provider padrão.** `google_cloud_v2` continua implementado e testado, como escolha explícita; `google_free` segue desabilitado | Custo por caractere da API do Google; e o motor local provou-se rápido o bastante (0,11 s para 284 caracteres) e leve o bastante (141 MB residentes) | ✅ **Decidido pelo usuário (revisão de PA-03, 2026-08-23)** |
 | D-05 | Bandeja via `AyatanaAppIndicator3` (SNI) | `StatusNotifierWatcher` confirmado ativo via `gnome-shell-extension-zorin-appindicator` | ✅ Firme |
 | D-06 | Autostart por XDG `~/.config/autostart` com `X-GNOME-Autostart-Delay=5` | Mais simples que systemd `--user` e herda o ambiente da sessão; o atraso evita a corrida com a extensão da bandeja | ✅ Firme |
 | D-07 | Configuração em GSettings; chave de API em libsecret | Nativo do GNOME; chave nunca em texto plano | ✅ Firme |
@@ -104,9 +105,9 @@ Ressalva de empacotamento: **`ctranslate2` não existe no APT** do Ubuntu 24.04.
 | R1 | Endpoint gratuito do Google é não-oficial | 🟢 **Rebaixado** — não é mais o padrão (D-04); virou opt-in desabilitado |
 | R2 | Acurácia de OCR em texto pequeno de UI | 🟡 **Maior risco aberto.** Mitigado por design (edição manual, upscale 3×) — validar no M1 |
 | R3 | `interactive: true` pode salvar cópia da captura | 🟡 **Validar empiricamente no M1** (PA-04) |
-| R6 | Exposição de conteúdo de tela a terceiros | 🟡 Mitigado por consentimento; **eliminado por completo para quem usar o provider offline (M4)** |
+| R6 | Exposição de conteúdo de tela a terceiros | 🟢 **Rebaixado** — com o padrão offline nada sai da máquina |
 | R12 | Corrida ao assinar o sinal `Response` do portal | 🟢 **Retirado em 2026-08-23** — teste de regressão contra portal falso reproduz a ordenação patológica |
-| R13 | Qualidade do modelo offline abaixo da API do Google | 🟡 Aberto — offline é opt-in e a origem é sinalizada na UI |
+| R13 | Qualidade do modelo offline; mistura pt-PT e pt-BR | 🔴 **Promovido a risco principal** — deixou de ser opt-in e passou a afetar todo uso. Mitigado por sinalizar a origem (RF-48), permitir editar e retraduzir (RF-32) e manter `google_cloud_v2` disponível |
 | R14 | Modelos de ~100 MB e `ctranslate2` fora do APT | 🟡 Mitigado por design (D-13) |
 | R7 | Atrito do pyenv sem `gi` | 🟢 Resolvido por design (`make dev-setup` + README) |
 | R11 | Tesseract ausente por padrão | 🟢 Resolvido por design; OCR validado de verdade contra o binário 5.3.4 |
@@ -122,15 +123,18 @@ Duas coisas exigem uma sessão gráfica real e uma pessoa na frente da tela:
 1. **Fechar PA-04/R3:** rodar `.venv/bin/python scripts/verify_portal_behaviour.py`, selecionar uma região e ler o veredito. Ele responde se o `interactive: true` deixa cópia em `~/Pictures/Screenshots` ou no clipboard. **Registrar o resultado aqui e na SPEC.**
 2. **Primeira captura real ponta a ponta:** `.venv/bin/translate-linux --set-api-key` e depois `--capture`. Até aqui o caminho portal→arquivo só foi exercitado contra um portal falso, e a tradução só contra uma sessão HTTP falsa.
 
-### M2 — bandeja, janela de resultado e cache
+### M2 — provider offline `local_ct2` (reordenado, era M4)
 
-Trabalhar em `feature/*` a partir de `develop`.
+Trabalhar em `feature/local-translation` a partir de `develop`. **A viabilidade já está provada** (seção 9); o que falta é transformar o experimento em código de produção.
 
-1. `Adw.Application` com `HANDLES_COMMAND_LINE` para instância única e ativação D-Bus (RF-09, RF-10) — substitui o `main()` atual do CLI sem quebrar as flags existentes.
-2. `tray.py` com `AyatanaAppIndicator3`; **exige `sudo apt install gir1.2-ayatanaappindicator3-0.1`**, que ainda não está instalado. Detectar a ausência do `StatusNotifierWatcher` (RF-12).
-3. `ui/result.py`: janela com tradução, original recolhido, copiar, trocar idioma e **editar o original para retraduzir** (RF-32) — a válvula de escape para erro de OCR.
-4. Threading obrigatório: OCR e rede fora da thread do GTK, com `GLib.idle_add` (RF-34).
-5. `translate/cache.py`: SQLite com chave `sha256(texto‖origem‖destino‖provider)`, expurgo LRU (RF-28).
+1. `translate/models.py` — índice, download com progresso e checksum, extração do `.argosmodel` **descartando `stanza/`**, instalação em `~/.local/share/translate-linux/models/<origem>-<destino>/`, listagem e remoção.
+2. `translate/local_ct2.py` — provider implementando o mesmo `TranslationProvider`. Pontos não-óbvios já descobertos:
+   - **Não usar `SentencePieceProcessor.decode()`**: deixa `U+2581` na saída. Usar `"".join(tokens).replace("\u2581", " ").strip()` (RF-47).
+   - Traduzir sentença a sentença via `translate_batch`, reaproveitando `chunking.py` para as fronteiras.
+   - Carregamento preguiçoso e descarte após 10 min de ociosidade (RF-43).
+3. `setup/bootstrap.py` — assistente que instala `ctranslate2` em venv privado e baixa o modelo padrão numa etapa só (RF-46).
+4. Trocar o padrão do provider para `local_ct2`; `--capture` passa a funcionar sem nenhuma chave.
+5. Testes: destokenização, seleção de modelo, modelo ausente, checksum, descarregamento por ociosidade. Integração marcada para pular quando o modelo não estiver instalado.
 6. Tag `v0.1.0`.
 
 ### Pendências de baixo risco
@@ -284,3 +288,30 @@ tesseract --list-langs
 - `ruff format` reformatava blocos Python dentro do Markdown da SPEC; `docs/` foi excluído do ruff.
 
 **Ainda não exercitado de verdade:** o caminho portal→arquivo com seleção humana, e uma chamada real à API do Google. Ambos estão na seção 6 como verificação humana pendente.
+
+### 2026-08-23 — Mudança de rumo: tradução offline passa a ser o padrão
+
+**Motivo:** o usuário apurou o custo por caractere da Cloud Translation API e o considerou alto. Como o provider offline já estava aprovado (D-12) e especificado, a mudança **não descarta trabalho**: o `google_cloud_v2` do M1 continua implementado e testado, apenas deixa de ser o padrão.
+
+**Viabilidade comprovada nesta máquina, não presumida:**
+
+| Medição | Resultado |
+|---|---|
+| Pacote `en→pt` v1.9 | 66 MB comprimido, 82 MB em disco |
+| Carregamento do modelo | 0,13 s |
+| Tradução de 284 caracteres | 0,11 s |
+| RSS com modelo residente | 141 MB (baseline 12 MB) |
+| Liberado ao descarregar | ~77 MB |
+| Dependências | `ctranslate2` 4.8.1 + `sentencepiece` 0.2.0 — **sem `torch`** |
+
+**Dois achados que viraram requisito:**
+1. **`SentencePieceProcessor.decode()` não funciona** com esses modelos — o vocabulário é compartilhado com o CTranslate2 e o `decode()` devolve o marcador `U+2581` embutido no texto (`'▁Clique no▁botão'`). A destokenização precisa ser manual: concatenar as peças e trocar `U+2581` por espaço. Virou **RF-47**. Sem esse achado, a saída sairia sutilmente quebrada.
+2. **O modelo mistura português europeu e brasileiro** na mesma sessão ("gravar o ficheiro" e "arquivos de log"). Isso promoveu **R13** a risco de impacto alto, já que agora afeta todo uso por padrão.
+
+**Qualidade observada:** boa para texto de interface e mensagens de erro ("Deseja descartar as alterações não salvas?", "Uso da memória: 45%, carga média de CPU 1.2 em 5 minutos" — ambas corretas). Fraca em texto idiomático (traduziu "The quick brown fox" como "A rapidinha raposa marrom").
+
+**O diretório `stanza/` dos pacotes Argos é descartado** na extração: ele existe só para segmentar sentenças, e `translate/chunking.py` já faz isso desde o M1.
+
+**Efeito colateral bom:** com o padrão offline, nada sai da máquina, então **R6 caiu para verde** e o diálogo de consentimento (RF-35) deixa de aparecer para quem nunca escolher um provider online.
+
+**Estado:** SPEC v1.3 e marcos reordenados (M2 = offline, M3 = bandeja/UI). Nenhum código de produção escrito para o M2 ainda.

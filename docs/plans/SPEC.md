@@ -3,7 +3,7 @@
 > **Status:** Rascunho aguardando aprovação explícita
 > **Autor:** Claude (Staff Engineer) — processo SDD
 > **Data:** 2026-08-23
-> **Versão do documento:** 1.2 — todas as perguntas bloqueantes resolvidas em 2026-08-23 (PA-01, PA-03, PA-05, PA-11, PA-12); provider de tradução offline acrescentado
+> **Versão do documento:** 1.3 — **a tradução offline passou a ser o provider padrão** (revisão de PA-03 por custo da API, 2026-08-23); marcos reordenados; viabilidade do motor local comprovada empiricamente
 > **Fase SDD:** 2 (Especificação) + 3 (Revisão Crítica) concluídas. **Nenhum código de produção foi escrito.**
 
 ---
@@ -33,7 +33,7 @@ O Zorin OS já possui o gesto mental correto: `PrintScreen` abre uma interface d
 5. **O5** — Entregar artefato instalável (`.deb`) publicado automaticamente em Release do GitHub a partir de uma tag `vX.Y.Z`.
 6. **O6** — `README.md` completo cobrindo build a partir do fonte, instalação, dependências, configuração e desinstalação.
 7. **O7** — Não vazar conteúdo sensível de tela sem consentimento informado e explícito do usuário.
-8. **O8** — Oferecer um modo de tradução **offline** opcional, que funcione sem rede e sem enviar conteúdo de tela a terceiros.
+8. **O8** — Traduzir **offline por padrão**, sem custo por uso, sem rede e sem enviar conteúdo de tela a terceiros. Os providers online permanecem disponíveis como escolha explícita.
 
 ### Métricas de sucesso
 
@@ -254,7 +254,7 @@ Um daemon de sessão em Python 3 + GTK4/libadwaita, residente na bandeja do sist
 
 - **RF-23** — O sistema DEVE definir a interface `TranslationProvider` com o contrato `translate(text: str, source: str|None, target: str) -> Translation`, onde `Translation` carrega `text`, `detected_source`, `provider` e `from_cache`.
 - **RF-24** — O sistema PODE oferecer o provider `google_free` (`https://translate.googleapis.com/translate_a/single?client=gtx&dt=t`) como opção **desabilitada por padrão**, exigindo ativação consciente nas Preferências, acompanhada de aviso de que é uma interface **não oficial, não suportada, sujeita a bloqueio por IP e provavelmente contrária aos Termos de Serviço do Google**.
-- **RF-25** — O sistema DEVE implementar o provider `google_cloud_v2` (Cloud Translation API v2) **como provider padrão**, com a chave de API armazenada exclusivamente no **libsecret** (chaveiro do GNOME), nunca em arquivo de configuração, `argv` ou log. Na ausência de chave configurada, o sistema DEVE conduzir o usuário às Preferências com instruções de obtenção, em vez de falhar genericamente.
+- **RF-25** — O sistema DEVE implementar o provider `google_cloud_v2` (Cloud Translation API v2) **como opção não-padrão**, para quem prefira qualidade superior e aceite o custo por caractere, com a chave de API armazenada exclusivamente no **libsecret** (chaveiro do GNOME), nunca em arquivo de configuração, `argv` ou log. Na ausência de chave configurada, o sistema DEVE conduzir o usuário às Preferências com instruções de obtenção, em vez de falhar genericamente.
 - **RF-26** — O sistema DEVE dividir textos longos em blocos de no máximo 1.500 caracteres, quebrando em fronteiras de sentença e depois de palavra, e recompor a tradução na ordem original.
 - **RF-27** — O sistema DEVE aplicar retry com backoff exponencial (3 tentativas, base 500 ms, jitter) para HTTP 429, 500, 502, 503, 504 e erros de conexão; timeout total de 15 s.
 - **RF-28** — O sistema DEVE consultar um cache local antes de cada requisição, chaveado por `sha256(texto ‖ origem ‖ destino ‖ provider)`.
@@ -270,7 +270,7 @@ Um daemon de sessão em Python 3 + GTK4/libadwaita, residente na bandeja do sist
 
 ### Configuração, consentimento e ciclo de vida
 
-- **RF-35** — Na primeira execução, o sistema DEVE exibir um diálogo de consentimento explicando que o texto reconhecido é **enviado a um serviço de terceiros (Google)**, exigindo aceite explícito antes da primeira tradução. A recusa mantém o aplicativo instalado e funcional apenas para OCR local (exibe o texto reconhecido sem traduzir).
+- **RF-35** — O sistema DEVE exigir consentimento explícito e versionado **antes da primeira tradução por um provider online**, explicando que o texto reconhecido sai da máquina. Com o padrão offline nada é enviado, então o diálogo NÃO DEVE aparecer para quem nunca escolher um provider online. A recusa mantém o provider offline em uso normal.
 - **RF-36** — O sistema DEVE persistir configuração via GSettings sob o schema `io.github.<owner>.TranslateLinux`.
 - **RF-37** — O sistema DEVE oferecer, nas Preferências, alternância de "Iniciar automaticamente no login", gerenciando `~/.config/autostart/translate-linux.desktop` com `X-GNOME-Autostart-Delay=5`.
 - **RF-38** — O `.deb` DEVE instalar o autostart habilitado por padrão, respeitando desativação posterior pelo usuário em reinstalações/upgrades.
@@ -278,12 +278,15 @@ Um daemon de sessão em Python 3 + GTK4/libadwaita, residente na bandeja do sist
 
 ### Tradução offline (provider local)
 
-- **RF-40** — O sistema DEVE implementar o provider `local_ct2`, de tradução **totalmente offline**, baseado em **CTranslate2** + **SentencePiece**, executando modelos neurais OPUS-MT quantizados em int8 sobre CPU.
+- **RF-40** — O sistema DEVE implementar o provider `local_ct2`, de tradução **totalmente offline** e **padrão do aplicativo**, baseado em **CTranslate2** + **SentencePiece**, executando modelos neurais OPUS-MT quantizados em int8 sobre CPU.
 - **RF-41** — Os modelos NÃO DEVEM ser embutidos no `.deb`. O sistema DEVE oferecer instalação sob demanda nas Preferências, com barra de progresso, verificação de checksum e opção de remoção, armazenando em `~/.local/share/translate-linux/models/<origem>-<destino>/`.
 - **RF-42** — Como `ctranslate2` **não está disponível no APT do Ubuntu 24.04** (verificado), o sistema DEVE instalá-lo sob demanda em um ambiente virtual privado (`~/.local/share/translate-linux/venv-offline`), mantendo o `.deb` livre de dependências fora de repositório. Falha nessa instalação NÃO DEVE afetar os providers online.
 - **RF-43** — O modelo DEVE ser carregado preguiçosamente na primeira tradução offline e descarregado após 10 minutos de ociosidade, para respeitar o orçamento de memória em repouso (NFR-P3).
 - **RF-44** — Quando o provider online falhar por indisponibilidade de rede e houver modelo offline instalado para o par de idiomas, o sistema DEVE traduzir automaticamente offline, sinalizando na janela que o resultado veio do modelo local.
 - **RF-45** — Se o par de idiomas solicitado não possuir modelo offline instalado, o sistema DEVE informá-lo explicitamente e oferecer o download, sem degradar a qualidade em silêncio nem pivotar por um terceiro idioma.
+- **RF-46** — Na primeira execução, o sistema DEVE oferecer um assistente que instala o motor offline (`ctranslate2`, ~40 MB) e o modelo do par padrão (~66 MB comprimidos, ~82 MB em disco) em uma única etapa guiada, com progresso agregado e possibilidade de cancelar. Como o download do modelo é inevitável de qualquer modo, acrescentar o runtime a esse mesmo fluxo não altera a experiência de forma perceptível.
+- **RF-47** — A destokenização da saída do modelo DEVE ser feita concatenando as peças e substituindo `U+2581` por espaço. **`SentencePieceProcessor.decode()` NÃO DEVE ser usado**: os modelos Argos usam vocabulário compartilhado com o CTranslate2, e o `decode()` deixa o marcador `U+2581` na saída (verificado empiricamente em 2026-08-23).
+- **RF-48** — O sistema DEVE sinalizar na interface quando o resultado vier do modelo local, para que a diferença de qualidade em relação aos providers online seja atribuível e não misteriosa.
 
 ---
 
@@ -293,10 +296,10 @@ Um daemon de sessão em Python 3 + GTK4/libadwaita, residente na bandeja do sist
 
 - **NFR-P1** — Latência p95 de confirmação da seleção até tradução visível ≤ 3,0 s para regiões ≤ 800×600 px com ≤ 500 caracteres.
 - **NFR-P2** — Tempo de inicialização até o ícone da bandeja aparecer ≤ 1,5 s a partir do `exec`.
-- **NFR-P3** — Consumo em repouso ≤ 80 MB RSS e ~0% de CPU (o daemon é orientado a eventos; proibido qualquer polling). Com um modelo offline carregado, o teto sobe para 400 MB, e o modelo DEVE ser descarregado após 10 min de ociosidade (RF-43), retornando ao patamar de 80 MB.
+- **NFR-P3** — Consumo em repouso ≤ 80 MB RSS e ~0% de CPU (o daemon é orientado a eventos; proibido qualquer polling). Com o modelo offline carregado o teto é **250 MB** (medido: 141 MB em 2026-08-23), e o modelo DEVE ser descarregado após 10 min de ociosidade (RF-43), liberando ~77 MB.
 - **NFR-P4** — Importações pesadas (Pillow, cliente HTTP) DEVEM ser carregadas preguiçosamente na primeira captura, não na inicialização.
 - **NFR-P5** — Acerto de cache DEVE retornar em ≤ 50 ms.
-- **NFR-P6** — A tradução offline DEVE concluir em ≤ 2,0 s para 500 caracteres em CPU, excluído o carregamento inicial do modelo, que DEVE ter indicação de progresso própria.
+- **NFR-P6** — A tradução offline DEVE concluir em ≤ 1,0 s para 500 caracteres em CPU (medido: 0,11 s para 284 caracteres em 8 núcleos), e o carregamento inicial do modelo em ≤ 1,0 s (medido: 0,13 s).
 
 ### Segurança e privacidade
 
@@ -472,7 +475,7 @@ PRAGMA user_version = 1;
 | `ocr-psm`            | `i`  | `6`                               |
 | `preprocess-scale`   | `d`  | `3.0`                             |
 | `min-confidence`     | `i`  | `40`                              |
-| `provider`                  | `s`  | `google_cloud_v2`                 |
+| `provider`                  | `s`  | `local_ct2`                       |
 | `offline-fallback`          | `b`  | `true`                            |
 | `allow-unofficial-provider` | `b`  | `false`                           |
 | `offline-idle-unload-min`   | `i`  | `10`                              |
@@ -516,7 +519,7 @@ class TranslationProvider(Protocol):
 | `tesseract` 5.3.4                              | subprocesso    | `tesseract <png> stdout -l <langs> --psm <n> tsv`                                                                                                                                                                        |
 | Google Translate (não-oficial)                 | HTTPS GET      | `translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=<t>&dt=t&q=<texto>` — **sem contrato, sem SLA, sujeito a bloqueio por IP e potencialmente contrário aos Termos de Serviço do Google**                 |
 | Google Cloud Translation v2                    | HTTPS POST     | `translation.googleapis.com/language/translate/v2?key=<chave>` — oficial, cota gratuita mensal sujeita a mudança; **o usuário deve verificar preços vigentes**                                                           |
-| CTranslate2 + SentencePiece (offline) | biblioteca local | Modelos OPUS-MT quantizados int8 executados na CPU. `ctranslate2` **não está no APT** (verificado); instalado sob demanda em venv privado (RF-42). Sem rede e sem terceiros |
+| CTranslate2 4.8 + SentencePiece (offline) | biblioteca local | Modelos OPUS-MT int8 distribuídos como pacotes `.argosmodel` (zip com o modelo CTranslate2 e o `sentencepiece.model`); índice em `argosopentech/argospm-index`, artefatos em `argos-net.com`. O par `en→pt` v1.9 pesa 66 MB comprimido e 82 MB em disco. O diretório `stanza/` do pacote é descartado: a segmentação de sentenças já existe em `translate/chunking.py`. **Sem rede em uso, sem terceiros, sem custo por caractere** |
 
 ### Auditoria
 
@@ -600,14 +603,14 @@ Não há requisito regulatório. A trilha auditável relevante é a de **privaci
 | R3  | `interactive: true` pode, dependendo da versão do GNOME, também salvar a captura em `~/Pictures/Screenshots` ou no clipboard | Média                    | Médio       | **Validar empiricamente no primeiro spike de implementação**; se ocorrer, documentar e avaliar limpeza pós-captura. Registrado como PA-04                                      |
 | R4  | Clique esquerdo na bandeja não dispara ação direta sob GNOME (IC5) — desvio do pedido literal do usuário                     | **Certa**                | Médio       | Primeiro item do menu é a captura (RF-07); atalho global (RF-11); _secondary activate_ no clique do meio. **Precisa de aceite explícito do usuário**                           |
 | R5  | Ausência do portal `GlobalShortcuts` (IC4) obriga a manipular GSettings do GNOME — solução frágil a mudanças do GNOME        | Média                    | Médio       | Isolar em um único módulo; falha no registro não é fatal; documentar o passo manual alternativo em Configurações do sistema                                                    |
-| R6 | Envio de conteúdo de tela a terceiros pode expor dados sensíveis | Média | **Crítico** | Consentimento explícito e versionado (RF-35); histórico off por padrão (RF-39); redação em logs (NFR-S4); **o provider offline (RF-40) elimina o envio por completo para quem optar por ele** |
+| R6 | Envio de conteúdo de tela a terceiros pode expor dados sensíveis | **Baixa** (rebaixada) | **Crítico** | **Com o padrão offline nada sai da máquina.** O risco só existe para quem escolher um provider online, e nesse caso valem o consentimento versionado (RF-35), o histórico off por padrão (RF-39) e a redação em logs (NFR-S4) |
 | R7  | Atrito do pyenv sem `gi` (IC6) trava o onboarding de desenvolvimento                                                         | **Alta**                 | Médio       | Alvo `make dev-setup` usando `/usr/bin/python3 -m venv --system-site-packages`; seção destacada no README; verificação no `--doctor`                                           |
 | R8  | Deriva de dependências: GNOME 47/48 em versões futuras do Zorin podem alterar o comportamento do portal                      | Média                    | Médio       | Depender apenas de interfaces de portal estáveis e versionadas; verificar a propriedade `version` em runtime; testar em CI sobre `ubuntu-24.04`                                |
 | R9  | O `.deb` avulso não recebe atualizações automáticas                                                                          | Alta                     | Baixo       | Verificação opcional de nova versão via API de releases do GitHub (opt-in), ou documentar upgrade manual                                                                       |
 | R10 | Complexidade excessiva para um utilitário pessoal                                                                            | Média                    | Médio       | Fatiamento em marcos: **M1 = pipeline vertical mínimo funcional**; recursos avançados só depois de o caminho principal provar valor                                            |
 | R11 | Tesseract não instalado por padrão no Zorin (verificado) — usuário instala o `.deb` e nada funciona                          | **Certa** se não tratado | Alto        | `Depends:` no `.deb` inclui `tesseract-ocr` e pacotes de idioma; verificação em runtime com mensagem acionável (RF-18)                                                         |
 | R12 | Corrida na assinatura do sinal `Response` do portal causa travamento intermitente                                            | Média                    | Alto        | RF-02 torna a ordem obrigatória; teste de integração com barramento simulado                                                                                                   |
-| R13 | Qualidade do modelo offline (OPUS-MT int8) inferior à da API do Google, sobretudo em texto técnico e idiomático | **Alta** | Médio | Offline é opt-in e não é o padrão; a janela indica a origem do resultado (RF-44); RF-32 permite editar e retraduzir; comparação de qualidade entra no roteiro de teste manual |
+| R13 | Qualidade do modelo offline (OPUS-MT int8) inferior à da API do Google em texto idiomático, e **mistura vocabulário pt-PT e pt-BR** ("ficheiro" e "arquivo" na mesma sessão) | **Certa** | **Alto** (promovido: agora afeta todo uso por padrão) | A origem do resultado é sinalizada (RF-48); RF-32 permite editar e retraduzir; `google_cloud_v2` continua disponível para quem precisar de mais qualidade; comparação lado a lado entra no roteiro de teste manual |
 | R14 | Modelos offline pesam ~80–100 MB por direção e `ctranslate2` não está no APT (verificado) | **Certa** | Médio | Modelos fora do `.deb`, baixados sob demanda (RF-41); `ctranslate2` em venv privado (RF-42); falha na instalação não afeta os providers online |
 
 ---
@@ -744,17 +747,23 @@ Não há requisito regulatório. A trilha auditável relevante é a de **privaci
 - **When** ele executa `translate-linux --doctor`
 - **Then** o relatório exibe tipo de sessão, versão do portal, disponibilidade do `StatusNotifierWatcher`, versão do tesseract, idiomas de OCR instalados e provider ativo
 
-**CA-16 — Tradução offline sem rede**
+**CA-16 — Tradução offline sem rede é o comportamento padrão**
 
-- **Given** o modelo offline `en → pt` instalado e a máquina sem conectividade
+- **Given** uma instalação nova com o assistente concluído e a máquina sem conectividade
 - **When** o usuário captura uma região com texto em inglês
-- **Then** a tradução é produzida localmente em até 5 segundos e a janela indica que o resultado veio do modelo offline
+- **Then** a tradução é produzida localmente em até 2 segundos, sem qualquer requisição de rede, e a interface indica que o resultado veio do modelo local
 
-**CA-17 — Fallback automático para offline**
+**CA-17 — Nenhum consentimento é pedido enquanto tudo for local**
 
-- **Given** o provider `google_cloud_v2` configurado, o fallback offline habilitado e um modelo instalado
-- **When** a chamada de rede falha por indisponibilidade de conexão
-- **Then** o sistema traduz offline automaticamente, sem exibir erro, sinalizando a origem do resultado
+- **Given** uma instalação nova usando o provider padrão offline
+- **When** o usuário captura e traduz repetidamente
+- **Then** nenhum diálogo de consentimento aparece e nenhuma conexão de saída é aberta; o diálogo só surge se um provider online for escolhido nas Preferências
+
+**CA-19 — Assistente de primeira execução**
+
+- **Given** uma instalação nova sem motor offline nem modelo
+- **When** o usuário aciona a primeira captura
+- **Then** um assistente instala o runtime e o modelo do par padrão em uma etapa guiada com progresso agregado, e o cancelamento deixa o aplicativo utilizável em modo somente-OCR
 
 **CA-18 — Ausência de modelo offline**
 
@@ -774,9 +783,9 @@ Não há requisito regulatório. A trilha auditável relevante é a de **privaci
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | **M0** | `git init`, estrutura do projeto, `pyproject.toml`, CI de lint/testes, README inicial                                                                                                       | —        |
 | **M1** | **Fatia vertical mínima:** CLI `--capture` → portal → tesseract → `google_cloud_v2` → saída em `stdout`. Sem bandeja, sem GUI. **Prova o risco técnico central (R12, R3) o mais cedo possível** | `v0.0.1` |
-| **M2** | Bandeja + janela de resultado GTK4 + normalização de texto + cache                                                                                                                          | `v0.1.0` |
-| **M3** | Preferências, consentimento, autostart, atalho global, provider oficial `google_cloud_v2`, `--doctor` | `v0.2.0` |
-| **M4** | **Provider offline `local_ct2`:** instalação sob demanda do runtime e dos modelos, carregamento preguiçoso, fallback automático sem rede | `v0.3.0` |
+| **M2** | **Provider offline `local_ct2`:** assistente de primeira execução, modelos sob demanda, carregamento preguiçoso, fallback | `v0.1.0` |
+| **M3** | Bandeja + janela de resultado GTK4 + cache | `v0.2.0` |
+| **M4** | Preferências, consentimento (só para provider online), autostart, atalho global, `--doctor` | `v0.3.0` |
 | **M5** | Empacotamento `.deb` + workflow de release + README completo + roteiro de teste manual | `v1.0.0` |
 
 **Pipeline (GitHub Actions):**
@@ -817,7 +826,7 @@ Sem backend, o monitoramento é local e sob controle do usuário — e a especif
 | --------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | ~~PA-01~~ | Linguagem: Python 3.12 + PyGObject? | ✅ **RESOLVIDO em 2026-08-23 — Sim.** | — |
 | **PA-02** | Owner/organização do GitHub e nome final do repositório                                  | `github.com/rmorais/translate-linux`, app ID `io.github.rmorais.TranslateLinux` | Baixo — afeta IDs, schema e URLs                                             |
-| ~~PA-03~~ | Provider padrão | ✅ **RESOLVIDO em 2026-08-23 — API oficial (`google_cloud_v2`).** O `google_free` passou a opt-in desabilitado (RF-24) e um provider **offline** foi acrescentado (RF-40 a RF-45) | — |
+| ~~PA-03~~ | Provider padrão | ✅ **RESOLVIDO em 2026-08-23, depois REVISTO no mesmo dia.** Primeiro decidido como API oficial; ao apurar o custo por caractere, o usuário optou por **`local_ct2` (offline) como padrão**. `google_cloud_v2` permanece implementado e testado, como escolha explícita | — |
 | **PA-04** | O `interactive: true` do portal salva cópia em `~/Pictures/Screenshots` ou no clipboard? | Não salva; **exige validação empírica no M1**                                   | Médio — pode exigir limpeza pós-captura                                      |
 | ~~PA-05~~ | RF-07: o clique esquerdo abrir o menu em vez de capturar direto é aceitável? | ✅ **RESOLVIDO em 2026-08-23 — Aceito.** | — |
 | **PA-06** | Idiomas de OCR a instalar por padrão                                                     | `eng` + `por` (+ `osd`)                                                         | Baixo — tamanho do pacote                                                    |
@@ -843,6 +852,7 @@ Revisão adversarial da especificação acima. Os achados **já foram incorporad
 - **RC-05 — Sem diagnóstico.** Suporte a um aplicativo desktop sem telemetria é impossível sem um comando de diagnóstico. → **NFR-O5, `--doctor`, CA-15**.
 - **RC-06 — Idiomas de OCR invisíveis.** O modo de falha mais provável e mais silencioso é o usuário capturar texto em alemão com o OCR configurado para `eng+por`, obtendo lixo sem entender a causa. → **Caso de borda 16**: exibir os idiomas de OCR ativos na janela de resultado.
 - **RC-26 — A alternativa offline não havia sido avaliada.** A pergunta do usuário motivou a investigação, com três candidatos verificados: **Apertium** está no APT e é leve, mas **não possui par inglês↔português** (verificado: existem apenas `es-pt`, `pt-gl` e `por-cat`) e é tradução baseada em regras; **Argos Translate** tem boa qualidade, mas depende de `stanza==1.10.1` → **`torch`** e de `spacy` (verificado no PyPI), inviável para um utilitário de desktop; a rota viável é **CTranslate2 (wheel de 39,5 MB) + SentencePiece (este disponível como `python3-sentencepiece` no APT) sobre modelos OPUS-MT int8** — exatamente o motor que o Argos usa por dentro, sem a cauda de dependências. → **RF-40 a RF-45, R13, R14, M4, CA-16 a CA-18**.
+- **RC-27 — A viabilidade do motor offline foi comprovada, não presumida.** Antes de promover `local_ct2` a padrão, o caminho inteiro foi executado nesta máquina em 2026-08-23: o pacote `en→pt` v1.9 foi baixado (66 MB), aberto e carregado com `ctranslate2` puro, **sem `argostranslate` e portanto sem `torch`**. Medições: carga do modelo 0,13 s, tradução de 284 caracteres em 0,11 s, 141 MB de RSS com o modelo residente e ~77 MB liberados ao descarregar. Dois achados mudaram requisitos: (a) `SentencePieceProcessor.decode()` **não funciona** com esses modelos e deixa `U+2581` na saída, exigindo destokenização manual (**RF-47**); (b) o modelo **mistura vocabulário de português europeu e brasileiro** na mesma sessão, o que promoveu **R13** a risco de impacto alto por passar a afetar todo uso.
 
 ### Premissas ocultas expostas
 
@@ -902,7 +912,9 @@ A especificação é **executável e proporcional**. Com PA-03 resolvido em favo
 
 ## Aguardando aprovação
 
-**Decisões aprovadas em 2026-08-23:** PA-01 (Python 3.12 + PyGObject), PA-03 (API oficial do Google como padrão, com o endpoint não-oficial rebaixado a opt-in e um provider offline acrescentado), PA-05 (clique na bandeja abre o menu, com a captura no primeiro item), PA-11 (`ctranslate2` em venv privado) e PA-12 (par offline inicial `en → pt`). O usuário confirmou também que providenciará a chave da Cloud Translation API, pré-requisito humano do M1.
+**Decisões aprovadas em 2026-08-23:** PA-01 (Python 3.12 + PyGObject), PA-05 (clique na bandeja abre o menu, com a captura no primeiro item), PA-11 (`ctranslate2` em venv privado) e PA-12 (par offline inicial `en → pt`).
+
+**PA-03 foi revista no mesmo dia.** Decidida inicialmente como API oficial do Google, foi alterada para **`local_ct2` (offline) como provider padrão** depois que o usuário apurou o custo por caractere. O `google_cloud_v2` já está implementado e testado desde o M1 e permanece disponível como escolha explícita, então a mudança não descarta trabalho: apenas troca o padrão e reordena os marcos.
 
 **Nenhuma pergunta em aberto bloqueia qualquer marco.** Restam apenas itens de baixo impacto, decidíveis durante a execução sob as suposições já registradas: PA-02 (owner do repositório → `io.github.rmorais.TranslateLinux`), PA-04 (validação empírica dentro do próprio M1), PA-06, PA-07 (licença MIT), PA-08, PA-09 e PA-10.
 
