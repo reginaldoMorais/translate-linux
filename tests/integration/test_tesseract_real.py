@@ -35,6 +35,13 @@ def render(text: str, path: Path, *, size: int = 18, invert: bool = False) -> Pa
 
     width = max(int(font.getlength(line)) for line in lines) + 24
     height = (size + 8) * len(lines) + 16
+
+    # Guard the fixture itself. A font that loads but reports nonsense metrics
+    # produces an image Tesseract rejects with an opaque libpng error, which
+    # says nothing about the actual cause.
+    assert 32 <= width <= 4000, f"fixture width is implausible: {width}"
+    assert 16 <= height <= 4000, f"fixture height is implausible: {height}"
+
     image = Image.new("RGB", (width, height), background)
     draw = ImageDraw.Draw(image)
     for index, line in enumerate(lines):
@@ -46,6 +53,10 @@ def render(text: str, path: Path, *, size: int = 18, invert: bool = False) -> Pa
 def read(text: str, tmp_path: Path, **render_kwargs: object) -> str:
     source = render(text, tmp_path / "source.png", **render_kwargs)  # type: ignore[arg-type]
     prepared = preprocess_file(source, tmp_path / "prepared.png")
+
+    with Image.open(prepared) as written:
+        assert written.size[0] <= 8000, f"prepared image is too wide: {written.size}"
+
     return normalize(recognise(prepared, languages="eng").text)
 
 

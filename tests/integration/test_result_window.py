@@ -14,13 +14,16 @@ import os
 
 import pytest
 
+HAS_DISPLAY = bool(os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY"))
+# Adw.Application.register() needs a session bus; without one GTK aborts the
+# process rather than raising, which shows up as a bare SIGTRAP.
+HAS_SESSION_BUS = bool(os.environ.get("DBUS_SESSION_BUS_ADDRESS"))
+
 pytestmark = [
     pytest.mark.ui,
     pytest.mark.integration,
-    pytest.mark.skipif(
-        not (os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY")),
-        reason="no display available",
-    ),
+    pytest.mark.skipif(not HAS_DISPLAY, reason="no display available"),
+    pytest.mark.skipif(not HAS_SESSION_BUS, reason="no session bus available"),
 ]
 
 gi = pytest.importorskip("gi")

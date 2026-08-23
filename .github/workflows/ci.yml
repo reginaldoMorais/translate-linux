@@ -58,4 +58,4 @@ jobs:
       - name: Test
         run: |
           make schema
-          xvfb-run -a .venv/bin/pytest --cov=translate_linux --cov-report=term-missing
+          xvfb-run -a dbus-run-session -- .venv/bin/pytest --cov=translate_linux --cov-report=term-missing

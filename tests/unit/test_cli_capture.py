@@ -37,8 +37,15 @@ OCR_ONLY_OUTCOME = CaptureOutcome(
 
 
 @pytest.fixture(autouse=True)
-def stored_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def isolated_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Detach these tests from whatever the developer happens to have installed.
+
+    Without this the suite passed locally and failed in CI: the default
+    provider is the local engine, and its availability was being read from the
+    real filesystem, where a development checkout has it and a runner does not.
+    """
     monkeypatch.setattr(credentials, "lookup_api_key", lambda _provider: "a-key")
+    monkeypatch.setattr(engine, "is_available", lambda: True)
 
 
 def stub_pipeline(

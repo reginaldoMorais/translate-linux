@@ -70,7 +70,7 @@ jobs:
       - name: Test
         run: |
           make schema
-          xvfb-run -a .venv/bin/pytest
+          xvfb-run -a dbus-run-session -- .venv/bin/pytest
 
       - name: Validate the desktop entry
         run: desktop-file-validate data/translate-linux.desktop
