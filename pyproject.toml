@@ -1,0 +1,109 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "translate-linux"
+description = "Capture a screen region on Linux, recognise its text and translate it."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Reginaldo Morais", email = "reginaldo.cmorais@gmail.com" }]
+keywords = ["ocr", "translation", "gnome", "wayland", "screenshot"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Environment :: X11 Applications :: GTK",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Topic :: Utilities",
+]
+dynamic = ["version"]
+
+# PyGObject is deliberately absent: it must come from the distribution
+# (python3-gi), never from pip. See README, "Development environment".
+dependencies = [
+  "Pillow>=9.5",
+  "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.8",
+  "pytest>=8.0",
+  "pytest-cov>=4.1",
+  "ruff>=0.5",
+  "types-requests>=2.31",
+]
+
+[project.urls]
+Homepage = "https://github.com/rmorais/translate-linux"
+Issues = "https://github.com/rmorais/translate-linux/issues"
+
+[project.scripts]
+translate-linux = "translate_linux.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "translate_linux.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["src", "tests"]
+# Code samples inside the specification are illustrative prose, not source.
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = [
+  "ARG", # unused arguments
+  "B",   # bugbear
+  "C4",  # comprehensions
+  "E",   # pycodestyle errors
+  "F",   # pyflakes
+  "I",   # import sorting
+  "N",   # naming
+  "PTH", # prefer pathlib
+  "RET", # return statements
+  "RUF", # ruff-specific
+  "SIM", # simplify
+  "TID", # tidy imports
+  "UP",  # pyupgrade
+  "W",   # pycodestyle warnings
+]
+ignore = ["E501"] # line length is enforced by the formatter
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ARG"] # pytest fixtures are frequently injected but unused
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+pretty = true
+
+[[tool.mypy.overrides]]
+# PyGObject ships no type stubs; introspection is resolved at runtime.
+module = ["gi.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = ["-q", "--strict-markers", "--strict-config", "-m", "not network"]
+markers = [
+  "network: hits a real third-party service; never run in CI",
+  "integration: needs external binaries or a D-Bus session bus",
+  "ui: needs a display server (run under xvfb-run)",
+]
+
+[tool.coverage.run]
+source = ["translate_linux"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if __name__ == .__main__.:"]
