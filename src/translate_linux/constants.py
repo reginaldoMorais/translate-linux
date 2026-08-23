@@ -22,3 +22,21 @@ def runtime_dir() -> Path:
     directory = root / APP_NAME
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     return directory
+
+
+def data_dir() -> Path:
+    """Return the directory for data that must survive a reboot."""
+    base = os.environ.get("XDG_DATA_HOME")
+    root = Path(base) if base else Path.home() / ".local" / "share"
+    directory = root / APP_NAME
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def cache_dir() -> Path:
+    """Return the directory for data that can be regenerated at any time."""
+    base = os.environ.get("XDG_CACHE_HOME")
+    root = Path(base) if base else Path.home() / ".cache"
+    directory = root / APP_NAME
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
