@@ -3,8 +3,9 @@
 Selecione uma região da tela como no `PrintScreen` do Zorin OS e, em vez de
 salvar uma imagem, receba **o texto reconhecido e traduzido**.
 
-> **Status: M0 — esqueleto do projeto.** O pipeline de captura, OCR e tradução
-> ainda não está implementado. A especificação completa está em
+> **Status: M1 — pipeline completo em linha de comando.** Captura, OCR e
+> tradução já funcionam via `translate-linux --capture`. A bandeja do sistema e
+> a janela de resultado chegam no M2. A especificação completa está em
 > [`docs/plans/SPEC.md`](docs/plans/SPEC.md) e o estado corrente do projeto em
 > [`docs/plans/HANDOFF.md`](docs/plans/HANDOFF.md).
 
@@ -96,6 +97,41 @@ CI. Para executá-los deliberadamente:
 .venv/bin/pytest -m network
 ```
 
+## Uso
+
+Guarde a chave da Cloud Translation API no chaveiro (só é preciso uma vez):
+
+```bash
+.venv/bin/translate-linux --set-api-key
+```
+
+Capture uma região e traduza:
+
+```bash
+.venv/bin/translate-linux --capture                 # idioma do seu locale
+.venv/bin/translate-linux --capture --target en     # idioma de destino explícito
+.venv/bin/translate-linux --capture --ocr-only      # só reconhece, não traduz
+.venv/bin/translate-linux --capture --json          # saída para script
+```
+
+Outros comandos:
+
+| Comando | O que faz |
+|---|---|
+| `--portal-info` | Mostra o tipo de sessão e a versão do portal de captura |
+| `--set-api-key` | Guarda a chave da API no chaveiro (sem eco no terminal) |
+| `--clear-api-key` | Remove a chave guardada |
+
+Cancelar a seleção com `Esc` encerra em silêncio, sem erro e sem consumir cota.
+
+### Ajuste de reconhecimento
+
+| Opção | Quando usar |
+|---|---|
+| `--ocr-lang deu+eng` | O texto na tela está em outro idioma |
+| `--psm 3` | O texto está em várias colunas |
+| `--scale 4` | O texto é muito pequeno e o reconhecimento falha |
+
 ## Build e instalação
 
 O empacotamento `.deb` e o pipeline de release por tag chegam no marco **M5**.
@@ -122,8 +158,8 @@ docs/plans/           # SPEC.md e HANDOFF.md
 
 | Marco | Escopo | Tag |
 |---|---|---|
-| **M0** | Estrutura, ferramentas e CI | — |
-| M1 | Fatia vertical em CLI: portal → Tesseract → tradução | `v0.0.1` |
+| ~~M0~~ | Estrutura, ferramentas e CI | — |
+| **M1** | Fatia vertical em CLI: portal → Tesseract → tradução | `v0.0.1` |
 | M2 | Bandeja, janela de resultado, normalização e cache | `v0.1.0` |
 | M3 | Preferências, consentimento, autostart, atalho global | `v0.2.0` |
 | M4 | Tradução offline (CTranslate2 + OPUS-MT) | `v0.3.0` |
