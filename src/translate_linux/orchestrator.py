@@ -53,6 +53,7 @@ def capture_and_translate(
     *,
     provider: TranslationProvider | None,
     target: str,
+    source: str | None = None,
     ocr_languages: str = DEFAULT_LANGUAGES,
     psm: int = DEFAULT_PSM,
     scale: float = DEFAULT_SCALE,
@@ -88,7 +89,7 @@ def capture_and_translate(
     if not text or not looks_like_text(text) or result.mean_confidence < MIN_MEAN_CONFIDENCE:
         raise NoTextRecognised(_no_text_hint(ocr_languages))
 
-    translation = provider.translate(text, None, target) if provider is not None else None
+    translation = provider.translate(text, source, target) if provider is not None else None
     return CaptureOutcome(
         original=text,
         translation=translation,

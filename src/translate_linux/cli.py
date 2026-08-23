@@ -22,7 +22,12 @@ from collections.abc import Sequence
 from translate_linux import __version__
 
 PROG = "translate-linux"
-PROVIDER_NAME = "google_cloud_v2"
+
+PROVIDER_LOCAL = "local"
+PROVIDER_GOOGLE = "google"
+DEFAULT_PROVIDER = PROVIDER_LOCAL
+
+GOOGLE_KEYRING_NAME = "google_cloud_v2"
 
 EXIT_OK = 0
 EXIT_FAILURE = 1
@@ -86,8 +91,35 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="report the screenshot portal version available on this session",
     )
+    actions.add_argument(
+        "--install-engine",
+        action="store_true",
+        help="install the offline translation engine into its private virtualenv",
+    )
+    actions.add_argument(
+        "--install-model",
+        metavar="PAIR",
+        help="download and install an offline model, for example 'en-pt'",
+    )
+    actions.add_argument(
+        "--list-models",
+        action="store_true",
+        help="list the offline models installed on this machine",
+    )
 
     options = parser.add_argument_group("capture options")
+    options.add_argument(
+        "--provider",
+        choices=[PROVIDER_LOCAL, PROVIDER_GOOGLE],
+        default=DEFAULT_PROVIDER,
+        help="translation back end (default: %(default)s, which runs offline)",
+    )
+    options.add_argument(
+        "--source",
+        metavar="LANG",
+        default=None,
+        help="source language code (default: en; local models cannot detect it)",
+    )
     options.add_argument(
         "--target",
         metavar="LANG",
@@ -137,6 +169,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _clear_api_key()
     if args.portal_info:
         return _portal_info()
+    if args.install_engine:
+        return _install_engine()
+    if args.install_model:
+        return _install_model(args.install_model)
+    if args.list_models:
+        return _list_models()
     if args.capture:
         return _capture(args)
 
@@ -161,7 +199,7 @@ def _set_api_key() -> int:
         return EXIT_FAILURE
 
     try:
-        store_api_key(PROVIDER_NAME, key)
+        store_api_key(GOOGLE_KEYRING_NAME, key)
     except CredentialError as error:
         return _fail(str(error))
     print("Stored.")
@@ -172,7 +210,7 @@ def _clear_api_key() -> int:
     from translate_linux.credentials import CredentialError, clear_api_key
 
     try:
-        removed = clear_api_key(PROVIDER_NAME)
+        removed = clear_api_key(GOOGLE_KEYRING_NAME)
     except CredentialError as error:
         return _fail(str(error))
     print("Removed." if removed else "No key was stored.")
@@ -195,20 +233,80 @@ def _portal_info() -> int:
     return EXIT_OK
 
 
-def _capture(args: argparse.Namespace) -> int:
-    from translate_linux.capture.portal import CaptureCancelled, CaptureError
-    from translate_linux.credentials import CredentialError, lookup_api_key
-    from translate_linux.ocr.tesseract import TesseractError
-    from translate_linux.orchestrator import NoTextRecognised, capture_and_translate
-    from translate_linux.translate.base import TranslationError
-    from translate_linux.translate.google_cloud import GoogleCloudTranslator
+def _install_engine() -> int:
+    from translate_linux.translate import engine
 
-    target = args.target or default_target_language()
+    if engine.is_available():
+        print(f"The offline engine is already {engine.describe()}.")
+        return EXIT_OK
 
-    provider = None
-    if not args.ocr_only:
+    print(f"Installing the offline engine into {engine.default_venv()} ...")
+    try:
+        location = engine.install()
+    except engine.EngineInstallFailed as error:
+        return _fail(str(error))
+    print(f"Installed at {location}")
+    return EXIT_OK
+
+
+def _install_model(pair: str) -> int:
+    from translate_linux.translate import models
+
+    codes = pair.split("-")
+    if len(codes) != 2 or not all(codes):
+        return _fail(f"'{pair}' is not a language pair; use a form such as 'en-pt'.")
+
+    try:
+        catalogue = models.fetch_index()
+        wanted = models.find_available(catalogue, codes[0], codes[1])
+    except models.ModelError as error:
+        return _fail(str(error))
+
+    print(f"Downloading {wanted.pair} v{wanted.version} ...")
+
+    def progress(written: int, total: int | None) -> None:
+        if total:
+            sys.stdout.write(f"\r  {written / 1e6:.0f} / {total / 1e6:.0f} MB")
+        else:
+            sys.stdout.write(f"\r  {written / 1e6:.0f} MB")
+        sys.stdout.flush()
+
+    try:
+        result = models.install(wanted, progress=progress)
+    except models.ModelError as error:
+        sys.stdout.write("\n")
+        return _fail(str(error))
+
+    sys.stdout.write("\n")
+    print(f"Installed {result.pair} at {result.path}")
+    return EXIT_OK
+
+
+def _list_models() -> int:
+    from translate_linux.translate import engine, models
+
+    print(f"offline engine : {engine.describe()}")
+    found = models.installed()
+    if not found:
+        print("installed models: none")
+        print(f"  Install one with: {PROG} --install-model en-pt")
+        return EXIT_OK
+
+    print("installed models:")
+    for model in found:
+        size = sum(f.stat().st_size for f in model.path.rglob("*") if f.is_file())
+        print(f"  {model.pair}  v{model.version}  {size / 1e6:.0f} MB  {model.path}")
+    return EXIT_OK
+
+
+def _build_provider(args: argparse.Namespace) -> object | int:
+    """Return a provider, or an exit code when one cannot be built."""
+    if args.provider == PROVIDER_GOOGLE:
+        from translate_linux.credentials import CredentialError, lookup_api_key
+        from translate_linux.translate.google_cloud import GoogleCloudTranslator
+
         try:
-            api_key = lookup_api_key(PROVIDER_NAME)
+            api_key = lookup_api_key(GOOGLE_KEYRING_NAME)
         except CredentialError as error:
             return _fail(str(error))
         if not api_key:
@@ -216,12 +314,39 @@ def _capture(args: argparse.Namespace) -> int:
                 "no Cloud Translation API key is stored.\n"
                 f"  Run '{PROG} --set-api-key', or use --ocr-only to skip translation."
             )
-        provider = GoogleCloudTranslator(api_key)
+        return GoogleCloudTranslator(api_key)
+
+    from translate_linux.translate import engine
+    from translate_linux.translate.local_ct2 import LocalTranslator
+
+    if not engine.is_available():
+        return _fail(
+            "the offline translation engine is not installed.\n"
+            f"  Run '{PROG} --install-engine' first."
+        )
+    return LocalTranslator()
+
+
+def _capture(args: argparse.Namespace) -> int:
+    from translate_linux.capture.portal import CaptureCancelled, CaptureError
+    from translate_linux.ocr.tesseract import TesseractError
+    from translate_linux.orchestrator import NoTextRecognised, capture_and_translate
+    from translate_linux.translate.base import TranslationError
+
+    target = args.target or default_target_language()
+
+    provider = None
+    if not args.ocr_only:
+        built = _build_provider(args)
+        if isinstance(built, int):
+            return built
+        provider = built
 
     try:
         outcome = capture_and_translate(
-            provider=provider,
+            provider=provider,  # type: ignore[arg-type]
             target=target,
+            source=args.source,
             ocr_languages=args.ocr_lang,
             psm=args.psm,
             scale=args.scale,

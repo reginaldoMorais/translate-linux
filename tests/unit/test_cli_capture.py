@@ -13,6 +13,7 @@ from translate_linux.capture.portal import CaptureCancelled, CaptureError
 from translate_linux.cli import default_target_language, main
 from translate_linux.ocr.tesseract import TesseractNotFound
 from translate_linux.orchestrator import CaptureOutcome, NoTextRecognised
+from translate_linux.translate import engine
 from translate_linux.translate.base import Translation, TranslationUnavailable
 
 OUTCOME = CaptureOutcome(
@@ -189,14 +190,78 @@ class TestCaptureErrors:
     def test_a_missing_api_key_names_the_remedy(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
+        """Only the online provider needs a key; the default one never does."""
         monkeypatch.setattr(credentials, "lookup_api_key", lambda _provider: None)
-        assert main(["--capture"]) == 1
+        assert main(["--capture", "--provider", "google"]) == 1
 
         err = capsys.readouterr().err
         assert "--set-api-key" in err
         assert "--ocr-only" in err
 
+    def test_the_default_provider_needs_no_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(credentials, "lookup_api_key", lambda _provider: None)
+        captured = stub_pipeline(monkeypatch, OUTCOME)
+
+        assert main(["--capture"]) == 0
+        assert captured["provider"] is not None
+
+    def test_a_missing_offline_engine_names_the_remedy(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(engine, "is_available", lambda: False)
+        assert main(["--capture"]) == 1
+        assert "--install-engine" in capsys.readouterr().err
+
     def test_ocr_only_works_without_a_stored_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(credentials, "lookup_api_key", lambda _provider: None)
         stub_pipeline(monkeypatch, OCR_ONLY_OUTCOME)
         assert main(["--capture", "--ocr-only"]) == 0
+
+
+class TestKeyringCommands:
+    """These went uncovered once and a rename broke them silently."""
+
+    def test_clearing_an_existing_key_reports_removal(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        seen: list[str] = []
+
+        def record(provider: str) -> bool:
+            seen.append(provider)
+            return True
+
+        monkeypatch.setattr(credentials, "clear_api_key", record)
+        assert main(["--clear-api-key"]) == 0
+        assert seen == ["google_cloud_v2"]
+        assert "Removed" in capsys.readouterr().out
+
+    def test_clearing_an_absent_key_says_so(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(credentials, "clear_api_key", lambda _provider: False)
+        assert main(["--clear-api-key"]) == 0
+        assert "No key was stored" in capsys.readouterr().out
+
+    def test_storing_a_key_uses_the_google_keyring_entry(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import getpass
+
+        stored: list[tuple[str, str]] = []
+        monkeypatch.setattr(getpass, "getpass", lambda _prompt: "a-secret")
+        monkeypatch.setattr(
+            credentials, "store_api_key", lambda provider, key: stored.append((provider, key))
+        )
+        assert main(["--set-api-key"]) == 0
+        assert stored == [("google_cloud_v2", "a-secret")]
+
+    def test_an_interrupted_prompt_fails_without_storing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import getpass
+
+        def interrupt(_prompt: str) -> str:
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(getpass, "getpass", interrupt)
+        assert main(["--set-api-key"]) == 1
