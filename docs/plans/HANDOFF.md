@@ -10,10 +10,10 @@
 | Campo | Valor |
 |---|---|
 | **Fase SDD** | Em implementação. SPEC **v1.4** |
-| **Marco atual** | **M3 concluído**, tag `v0.2.0`. Próximo: M4 (preferências, autostart, atalho) |
+| **Marco atual** | **M4 concluído**, tag `v0.3.0`. Próximo: M5 (`.deb` e release) |
 | **Bloqueado por** | Nada |
-| **Código de produção** | Bandeja + janela GTK4 + tradução offline, **validado pelo usuário na máquina real**. **435 testes**, mypy strict e ruff limpos |
-| **Git** | 25 commits em `develop`, tags `v0.0.1`, `v0.1.0` e `v0.2.0`. **Sem remoto configurado** |
+| **Código de produção** | Aplicativo completo, faltando empacotamento. **495 testes**, mypy strict e ruff limpos |
+| **Git** | 32 commits em `develop`, tags até `v0.3.0`. **Sem remoto configurado — bloqueia o M5** |
 | **Última atualização** | 2026-08-23 |
 
 ### Progresso por marco
@@ -24,8 +24,8 @@
 | M1 | Fatia vertical: CLI `--capture` → portal → tesseract → `google_cloud_v2` → stdout | `v0.0.1` | ✅ **Concluído em 2026-08-23** |
 | M2 | **Provider offline `local_ct2`** + comandos de instalação | `v0.1.0` | ✅ **Concluído em 2026-08-23** |
 | M3 | Bandeja + janela GTK4 + cache | `v0.2.0` | ✅ **Concluído em 2026-08-23** |
-| **M4** | Preferências, consentimento (só online), autostart, atalho global, `--doctor` | `v0.3.0` | ⬜ Próximo |
-| M5 | `.deb` + workflow de release + README completo + roteiro manual | `v1.0.0` | ⬜ Não iniciado |
+| M4 | Preferências, consentimento (só online), autostart, atalho global, `--doctor` | `v0.3.0` | ✅ **Concluído em 2026-08-23** |
+| **M5** | `.deb` + workflow de release + README completo + roteiro manual | `v1.0.0` | ⬜ Próximo |
 
 ---
 
@@ -125,17 +125,18 @@ Duas coisas exigem uma sessão gráfica real e uma pessoa na frente da tela:
 1. **Fechar PA-04/R3:** rodar `.venv/bin/python scripts/verify_portal_behaviour.py`, selecionar uma região e ler o veredito. Ele responde se o `interactive: true` deixa cópia em `~/Pictures/Screenshots` ou no clipboard. **Registrar o resultado aqui e na SPEC.**
 2. **Primeira captura real ponta a ponta:** `.venv/bin/translate-linux --set-api-key` e depois `--capture`. Até aqui o caminho portal→arquivo só foi exercitado contra um portal falso, e a tradução só contra uma sessão HTTP falsa.
 
-### M4 — preferências, consentimento, autostart e atalho global
+### M5 — empacotamento e release
 
-Trabalhar em `feature/*` a partir de `develop`.
+**Bloqueado por você:** não existe repositório remoto. As tags `v0.0.1` a `v0.3.0` só existem localmente, e sem remoto não há Actions nem Release.
 
-1. **GSettings**: criar `data/io.github.rmorais.TranslateLinux.gschema.xml` com as chaves da SPEC e compilar no `postinst`. Hoje as preferências vivem só em memória (o idioma escolhido no menu some ao reiniciar).
-2. `ui/preferences.py` (`Adw.PreferencesWindow`): idioma de destino, idiomas de OCR, escala, provider, gerenciar modelos offline (instalar/remover, reaproveitando `translate/models.py`), autostart.
-3. `ui/consent.py`: exigido **só** ao escolher um provider online (RF-35); com o padrão offline nada sai da máquina e o diálogo não aparece.
-4. Autostart: gerenciar `~/.config/autostart/translate-linux.desktop` com `X-GNOME-Autostart-Delay=5` (RF-37).
-5. Atalho global via GSettings do GNOME (`media-keys custom-keybindings` → `translate-linux --capture`), já que o portal `GlobalShortcuts` não existe aqui (IC4).
-6. `--doctor` (NFR-O5): sessão, portal, watcher, tesseract e idiomas, motor offline, modelos instalados. Boa parte já existe espalhada em `--portal-info` e `--list-models`.
-7. Tag `v0.3.0`.
+Quando o repo existir:
+
+1. `packaging/debian/` — `control` com `Depends:` (ver seção 8), `rules`, `postinst` (compilar o schema GSettings com `glib-compile-schemas`), `postrm` (remover schema e autostart), `changelog` derivado da tag.
+2. `data/translate-linux.desktop` e um ícone próprio em `data/icons/` — hoje usamos `accessories-dictionary` do tema.
+3. `.github/workflows/release.yml` disparado por tag `v*`: roda a suíte, valida que `__version__` bate com a tag, constrói o `.deb` (`arch: all`), instala num contêiner limpo como smoke test, gera `SHA256SUMS` e publica o Release.
+4. Assistente de primeira execução (RF-46): instalar motor + modelo numa etapa guiada. Hoje isso é manual via `--install-engine` e `--install-model`.
+5. `docs/manual-test-plan.md` — o roteiro que o mantenedor executa em Zorin real antes de cada tag. É o portão de qualidade real, já que a CI não exercita Wayland de verdade.
+6. Tag `v1.0.0`.
 
 ### Pendências de baixo risco
 
@@ -365,3 +366,21 @@ tesseract --list-langs
 **Duas pontas soltas do M2 fechadas:** `unload_if_idle` finalmente tem quem o chame (timer do GLib), e o cache foi ligado ao pipeline como `CachingProvider` — ambos existiam e estavam testados, mas nada os usava.
 
 **R13 confirmado em uso real:** "My name is Reginaldo" virou "O meu nome é Reginaldo" — fraseado de português europeu. Inerente ao OPUS-MT en→pt; sem ajuste. A mitigação continua sendo sinalizar a origem e permitir editar e retraduzir.
+
+### 2026-08-23 — M4 concluído (tag `v0.3.0`)
+
+**Entregue:** configuração persistente (GSettings), janela de preferências, autostart, atalho global, diálogo de consentimento e `--doctor`.
+
+**Módulos novos:** `config.py`, `autostart.py`, `shortcuts.py`, `diagnostics.py`, `ui/preferences.py`, `ui/consent.py`, mais `data/io.github.rmorais.TranslateLinux.gschema.xml`.
+
+**Gates:** ruff limpo, mypy `--strict` em 58 arquivos, **495 testes**.
+
+**Decisões de implementação:**
+- O schema GSettings é procurado **primeiro no checkout** (`data/gschemas.compiled`, via `make schema`) e só depois no sistema, para que desenvolver não exija instalar nada em `/usr`.
+- Se o schema não existir, o app **continua funcionando** — apenas esquece as configurações. Uma configuração ausente não é motivo para não traduzir.
+- O consentimento (RF-35) só é pedido ao **escolher um provider online**. Com o padrão local o diálogo nunca aparece, e recusar mantém o modelo local em vez de deixar o app inutilizável.
+- A exceção do mypy para subclassificar widgets foi generalizada para `translate_linux.ui.*` em vez de crescer módulo a módulo.
+
+**Fragilidade registrada:** o atalho global escreve em `org.gnome.settings-daemon.plugins.media-keys`, porque o portal `GlobalShortcuts` não existe aqui (IC4). É a parte mais sujeita a quebrar numa atualização do GNOME. Por isso tudo em `shortcuts.py` falha suavemente: um atalho que não registra é inconveniente, nunca fatal.
+
+**Ainda manual:** instalar motor e modelo continua sendo `--install-engine` + `--install-model`. O assistente de primeira execução (RF-46) ficou para o M5, junto com o empacotamento, que é quando ele passa a importar de verdade.
