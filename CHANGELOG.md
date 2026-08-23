@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-23
+
+### Added
+
+- A `.deb` package, built by assembling the tree and calling dpkg-deb, with a
+  desktop entry, an icon and the GSettings schema compiled on install.
+- A release workflow triggered by a `v*` tag: it refuses to publish when the
+  tag and `__version__` disagree, runs the whole suite, builds the package and
+  installs it into a clean Ubuntu container before publishing.
+- `docs/manual-test-plan.md`, the roadmap the maintainer runs on real hardware
+  before tagging, since CI has no Wayland, no GNOME Shell, no capture portal
+  and no tray.
+
+### Changed
+
+- The application id is now `io.github.reginaldomorais.TranslateLinux`, matching
+  the repository owner. It is the GSettings schema id, the D-Bus name and the
+  libsecret schema, so settings stored under the previous id are not carried
+  over; the defaults simply apply again.
+
+### Fixed
+
+- A missing GSettings schema aborted the process through `g_error` instead of
+  raising, which would have taken the application down on any desktop that is
+  not GNOME.
+
 ## [0.3.0] - 2026-08-23
 
 ### Added

@@ -3,10 +3,9 @@
 Selecione uma região da tela como no `PrintScreen` do Zorin OS e, em vez de
 salvar uma imagem, receba **o texto reconhecido e traduzido**.
 
-> **Status: M4 — aplicativo completo, faltando empacotamento.** Bandeja,
-> janela de resultado, tradução offline, preferências persistentes, autostart e
-> atalho global funcionam. O `.deb` e o pipeline de release chegam no M5. A
-> especificação está em
+> **Status: v1.0.0.** Bandeja, janela de resultado, tradução offline,
+> preferências persistentes, autostart, atalho global e pacote `.deb`
+> publicado automaticamente a partir de uma tag. A especificação está em
 > [`docs/plans/SPEC.md`](docs/plans/SPEC.md) e o estado corrente do projeto em
 > [`docs/plans/HANDOFF.md`](docs/plans/HANDOFF.md).
 
@@ -166,10 +165,37 @@ Cancelar a seleção com `Esc` encerra em silêncio, sem erro e sem consumir cot
 | `--psm 3`            | O texto está em várias colunas                   |
 | `--scale 4`          | O texto é muito pequeno e o reconhecimento falha |
 
-## Build e instalação
+## Instalação
 
-O empacotamento `.deb` e o pipeline de release por tag chegam no marco **M5**.
-Até lá, execute a partir da árvore de trabalho com `make run`.
+Baixe o `.deb` da [página de releases](https://github.com/reginaldoMorais/translate-linux/releases)
+e instale:
+
+```bash
+sudo apt install ./translate-linux_1.0.0_all.deb
+translate-linux --install-engine        # motor offline, ~40 MB
+translate-linux --install-model en-pt   # modelo en->pt, ~66 MB
+translate-linux --doctor                # confere se está tudo certo
+```
+
+Depois abra pelo menu de aplicativos, ou:
+
+```bash
+translate-linux --tray
+translate-linux --autostart on
+```
+
+Para desinstalar: `sudo apt remove translate-linux`. Os modelos baixados ficam
+em `~/.local/share/translate-linux/` e não são removidos pelo pacote — apague à
+mão se quiser recuperar o espaço.
+
+## Build a partir do fonte
+
+```bash
+./packaging/build-deb.sh      # gera dist/translate-linux_X.Y.Z_all.deb
+```
+
+Não usa debhelper: o pacote é Python puro e independente de arquitetura, e o
+script cabe inteiro numa leitura.
 
 ## Estrutura do projeto
 
