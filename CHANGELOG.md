@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-23
+
+### Added
+
+- Settings that persist, backed by GSettings, with a schema declaring types,
+  ranges and defaults.
+- A preferences window covering languages, provider, recognition, offline
+  models, autostart and the global shortcut.
+- An XDG autostart entry, delayed so the shell has a tray host ready before
+  the icon tries to appear.
+- A global capture shortcut registered through GNOME's custom keybindings,
+  with conflict detection.
+- A consent dialog shown only when an online provider is chosen; local
+  translation never asks, because nothing leaves the machine.
+- `--doctor`, which reports every environment dependency, plus `--autostart`
+  and `--shortcut`.
+
 ## [0.2.0] - 2026-08-23
 
 ### Added

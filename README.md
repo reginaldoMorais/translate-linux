@@ -3,9 +3,10 @@
 Selecione uma região da tela como no `PrintScreen` do Zorin OS e, em vez de
 salvar uma imagem, receba **o texto reconhecido e traduzido**.
 
-> **Status: M2 — tradução offline funcionando.** Captura, OCR e tradução local
-> funcionam via `translate-linux --capture`, sem rede e sem custo por uso. A
-> bandeja do sistema e a janela de resultado chegam no M3. A especificação está em
+> **Status: M4 — aplicativo completo, faltando empacotamento.** Bandeja,
+> janela de resultado, tradução offline, preferências persistentes, autostart e
+> atalho global funcionam. O `.deb` e o pipeline de release chegam no M5. A
+> especificação está em
 > [`docs/plans/SPEC.md`](docs/plans/SPEC.md) e o estado corrente do projeto em
 > [`docs/plans/HANDOFF.md`](docs/plans/HANDOFF.md).
 
@@ -102,8 +103,18 @@ CI. Para executá-los deliberadamente:
 ### Preparo (uma vez)
 
 ```bash
+make schema                                       # compila o esquema GSettings
 .venv/bin/translate-linux --install-engine        # motor offline, ~40 MB
 .venv/bin/translate-linux --install-model en-pt   # modelo en->pt, ~66 MB
+.venv/bin/translate-linux --doctor                # confere se está tudo certo
+```
+
+Para rodar residente na bandeja e iniciar junto com a sessão:
+
+```bash
+.venv/bin/translate-linux --tray &
+.venv/bin/translate-linux --autostart on
+.venv/bin/translate-linux --shortcut '<Super><Shift>t'
 ```
 
 Confira o que ficou instalado com `--list-models`.
@@ -134,6 +145,10 @@ Outros comandos:
 
 | Comando | O que faz |
 |---|---|
+| `--tray` | Roda residente na bandeja do sistema |
+| `--doctor` | Relata o estado de tudo de que o aplicativo depende |
+| `--autostart on\|off\|status` | Controla o início junto com a sessão |
+| `--shortcut '<Super><Shift>t'` | Registra o atalho global (`off` remove) |
 | `--list-models` | Lista o motor e os modelos offline instalados |
 | `--install-engine` | Instala o motor offline em um virtualenv privado |
 | `--install-model PAR` | Baixa e instala um modelo, por exemplo `en-pt` |
@@ -179,9 +194,9 @@ docs/plans/           # SPEC.md e HANDOFF.md
 |---|---|---|
 | ~~M0~~ | Estrutura, ferramentas e CI | — |
 | ~~M1~~ | Fatia vertical em CLI: portal → Tesseract → tradução | `v0.0.1` |
-| **M2** | Tradução offline (CTranslate2 + OPUS-MT) | `v0.1.0` |
-| M3 | Bandeja, janela de resultado e cache | `v0.2.0` |
-| M4 | Preferências, consentimento, autostart, atalho global | `v0.3.0` |
+| ~~M2~~ | Tradução offline (CTranslate2 + OPUS-MT) | `v0.1.0` |
+| ~~M3~~ | Bandeja, janela de resultado e cache | `v0.2.0` |
+| **M4** | Preferências, consentimento, autostart, atalho global | `v0.3.0` |
 | M5 | Empacotamento `.deb` e pipeline de release | `v1.0.0` |
 
 ## Privacidade
