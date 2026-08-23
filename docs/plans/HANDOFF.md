@@ -10,10 +10,10 @@
 | Campo | Valor |
 |---|---|
 | **Fase SDD** | Especificação aprovada (SPEC **v1.2**). Em **implementação** |
-| **Marco atual** | **M0 concluído.** Próximo: M1 |
+| **Marco atual** | **M1 concluído**, tag `v0.0.1`. Próximo: M2 |
 | **Bloqueado por** | Nada |
-| **Código de produção** | Esqueleto do M0 em `src/translate_linux/`; 4 testes passando; lint, tipos e testes verdes |
-| **Git** | Inicializado. `main` e `develop` no commit `2bdbb51`. Sem remoto configurado |
+| **Código de produção** | Pipeline completo em CLI. **211 testes**, cobertura 88%, mypy strict e ruff limpos |
+| **Git** | 9 commits em `develop`, tag `v0.0.1`. **Sem remoto configurado** |
 | **Última atualização** | 2026-08-23 |
 
 ### Progresso por marco
@@ -21,7 +21,7 @@
 | Marco | Escopo | Tag | Estado |
 |---|---|---|---|
 | M0 | `git init`, estrutura, `pyproject.toml`, CI de lint/testes, README inicial | — | ✅ **Concluído em 2026-08-23** |
-| M1 | Fatia vertical: CLI `--capture` → portal → tesseract → `google_cloud_v2` → stdout | `v0.0.1` | ⬜ Não iniciado |
+| M1 | Fatia vertical: CLI `--capture` → portal → tesseract → `google_cloud_v2` → stdout | `v0.0.1` | ✅ **Concluído em 2026-08-23** |
 | M2 | Bandeja + janela GTK4 + normalização + cache | `v0.1.0` | ⬜ Não iniciado |
 | M3 | Preferências, consentimento, autostart, atalho global, provider oficial, `--doctor` | `v0.2.0` | ⬜ Não iniciado |
 | M4 | Provider offline `local_ct2` + download de modelos sob demanda | `v0.3.0` | ⬜ Não iniciado |
@@ -115,21 +115,29 @@ Ressalva de empacotamento: **`ctranslate2` não existe no APT** do Ubuntu 24.04.
 
 ## 6. Próximos passos
 
-**M1 — a fatia vertical que compra informação.** Trabalhar na branch `develop` (ou `feature/*` a partir dela), nesta ordem:
+### Verificação humana pendente do M1 (fazer antes do M2)
 
-1. **`make system-deps`** — o `tesseract` ainda NÃO está instalado nesta máquina; nada do M1 roda sem ele.
-2. `capture/portal.py` — **assinar o sinal `Response` ANTES de chamar `Screenshot()`** (RF-02). Primeiro item porque R12 é o risco de maior custo se descoberto tarde.
-3. **Validar PA-04/R3 no mesmo spike:** o `interactive: true` deixa cópia em `~/Pictures/Screenshots` ou no clipboard? Registrar o resultado aqui e na SPEC.
-4. `ocr/preprocess.py` (Pillow: upscale 3×, cinza, autocontraste) + `ocr/tesseract.py` (subprocesso, saída TSV com confiança).
-5. `text/normalize.py` — de-hifenização, junção de linhas, NFC. **É o módulo mais testável do projeto; comece pelos testes.**
-6. `translate/base.py` (Protocol) + `translate/google_cloud.py` + chave no libsecret.
-7. CLI `--capture` imprimindo em stdout; sem bandeja e sem GUI.
-8. Testes unitários de toda lógica pura (obrigatório por `CLAUDE.md`) e `make check` verde.
-9. Tag `v0.0.1`.
+Duas coisas exigem uma sessão gráfica real e uma pessoa na frente da tela:
 
-> **Pré-requisito humano:** chave da Cloud Translation API — o usuário confirmou que providencia. Só é necessária no passo 6.
-> **Decisão pendente de baixo risco:** PA-02 (owner do repositório). O `pyproject.toml` já assume `github.com/rmorais/translate-linux`; ajustar antes de criar o schema GSettings no M3, se divergir.
-> **Sem remoto git configurado:** `git push` e a CI do GitHub só funcionam depois de criar o repositório remoto.
+1. **Fechar PA-04/R3:** rodar `.venv/bin/python scripts/verify_portal_behaviour.py`, selecionar uma região e ler o veredito. Ele responde se o `interactive: true` deixa cópia em `~/Pictures/Screenshots` ou no clipboard. **Registrar o resultado aqui e na SPEC.**
+2. **Primeira captura real ponta a ponta:** `.venv/bin/translate-linux --set-api-key` e depois `--capture`. Até aqui o caminho portal→arquivo só foi exercitado contra um portal falso, e a tradução só contra uma sessão HTTP falsa.
+
+### M2 — bandeja, janela de resultado e cache
+
+Trabalhar em `feature/*` a partir de `develop`.
+
+1. `Adw.Application` com `HANDLES_COMMAND_LINE` para instância única e ativação D-Bus (RF-09, RF-10) — substitui o `main()` atual do CLI sem quebrar as flags existentes.
+2. `tray.py` com `AyatanaAppIndicator3`; **exige `sudo apt install gir1.2-ayatanaappindicator3-0.1`**, que ainda não está instalado. Detectar a ausência do `StatusNotifierWatcher` (RF-12).
+3. `ui/result.py`: janela com tradução, original recolhido, copiar, trocar idioma e **editar o original para retraduzir** (RF-32) — a válvula de escape para erro de OCR.
+4. Threading obrigatório: OCR e rede fora da thread do GTK, com `GLib.idle_add` (RF-34).
+5. `translate/cache.py`: SQLite com chave `sha256(texto‖origem‖destino‖provider)`, expurgo LRU (RF-28).
+6. Tag `v0.1.0`.
+
+### Pendências de baixo risco
+
+- **Sem remoto git:** `git push` e a CI do GitHub só funcionam depois de criar o repositório remoto. A tag `v0.0.1` existe só localmente.
+- **PA-02:** o app ID `io.github.rmorais.TranslateLinux` já está em `constants.py` e é usado como schema do libsecret. Trocar antes do M3, se divergir.
+- **Idioma da interface:** a CLI do M1 está em **inglês**. A SPEC (FE9) pede UI em pt-BR na v1. Decisão a tomar no M2, quando a UI GTK entrar: adotar gettext e traduzir tudo o que é voltado ao usuário, ou assumir inglês. Não resolver isso pela metade.
 
 ---
 
@@ -254,3 +262,25 @@ tesseract --list-langs
 **Confirmado na prática:** o venv com `--system-site-packages` criado por `/usr/bin/python3` enxerga o PyGObject (GTK 4.14). A mitigação de IC6 funciona.
 
 **Estado:** M0 fechado, working tree limpa na branch `develop`. Pronto para o M1.
+
+### 2026-08-23 — M1 concluído (tag `v0.0.1`)
+
+**Entregue:** o pipeline vertical completo em linha de comando — portal → pré-processamento → Tesseract → normalização → Cloud Translation v2 → stdout.
+
+**Módulos:** `capture/portal.py`, `ocr/preprocess.py`, `ocr/tesseract.py`, `text/normalize.py`, `translate/{base,chunking,google_cloud}.py`, `orchestrator.py`, `credentials.py`, `constants.py`, `cli.py`.
+
+**Resultado dos gates:** ruff limpo, mypy `--strict` sem erros em 29 arquivos, **211 testes passando**, cobertura 88% (`normalize`, `preprocess` e `orchestrator` em 100%; `google_cloud` 97%; `tesseract` 96%).
+
+**R12 retirado.** O teste `test_a_response_emitted_before_the_method_reply_is_still_caught` sobe um portal falso num barramento D-Bus privado e emite o `Response` **antes** da resposta do método. Se a assinatura do sinal fosse feita depois da chamada, ele travaria até o timeout. Além disso, o código guarda contra `loop.quit()` antes de `loop.run()`, que travaria para sempre.
+
+**Bug real encontrado e corrigido durante o M1:** a remontagem dos chunks traduzidos indexava por `id()` da string. O CPython reutiliza o mesmo objeto para strings de 1 caractere, então textos com chunks idênticos seriam remontados fora de ordem. Passou a usar posição. Coberto por `test_repeated_identical_chunks_are_reassembled_in_order`.
+
+**Tesseract 5.3.4 foi instalado durante a sessão** (eng, osd, por), então os testes de integração de OCR rodaram **de verdade**: frase simples, texto claro sobre fundo escuro, texto de 12 px e rejunção de linhas quebradas — todos passando com o pré-processamento de upscale 3×.
+
+**Decisões tomadas na implementação:**
+- Providers e backends recebem a conexão D-Bus e a sessão HTTP por injeção, o que tornou possível testar tudo sem rede e sem sessão gráfica.
+- `batch()` agrupa chunks em poucas requisições em vez de uma por chunk, reduzindo latência.
+- `N818` desativado no ruff: `CaptureCancelled` e `NoTextRecognised` são desfechos normais, e o sufixo `Error` os descreveria mal.
+- `ruff format` reformatava blocos Python dentro do Markdown da SPEC; `docs/` foi excluído do ruff.
+
+**Ainda não exercitado de verdade:** o caminho portal→arquivo com seleção humana, e uma chamada real à API do Google. Ambos estão na seção 6 como verificação humana pendente.
