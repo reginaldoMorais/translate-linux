@@ -9,11 +9,11 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase SDD** | Em implementação. SPEC **v1.3** — provider padrão mudou para offline |
-| **Marco atual** | **M2 concluído**, tag `v0.1.0`. Próximo: M3 (bandeja e janela GTK) |
+| **Fase SDD** | Em implementação. SPEC **v1.4** |
+| **Marco atual** | **M3 concluído**, tag `v0.2.0`. Próximo: M4 (preferências, autostart, atalho) |
 | **Bloqueado por** | Nada |
-| **Código de produção** | Pipeline completo em CLI **traduzindo offline**. **315 testes**, mypy strict e ruff limpos |
-| **Git** | 18 commits em `develop`, tags `v0.0.1` e `v0.1.0`. **Sem remoto configurado** |
+| **Código de produção** | Bandeja + janela GTK4 + tradução offline, **validado pelo usuário na máquina real**. **435 testes**, mypy strict e ruff limpos |
+| **Git** | 25 commits em `develop`, tags `v0.0.1`, `v0.1.0` e `v0.2.0`. **Sem remoto configurado** |
 | **Última atualização** | 2026-08-23 |
 
 ### Progresso por marco
@@ -23,8 +23,8 @@
 | M0 | `git init`, estrutura, `pyproject.toml`, CI de lint/testes, README inicial | — | ✅ **Concluído em 2026-08-23** |
 | M1 | Fatia vertical: CLI `--capture` → portal → tesseract → `google_cloud_v2` → stdout | `v0.0.1` | ✅ **Concluído em 2026-08-23** |
 | M2 | **Provider offline `local_ct2`** + comandos de instalação | `v0.1.0` | ✅ **Concluído em 2026-08-23** |
-| **M3** | Bandeja + janela GTK4 + cache | `v0.2.0` | ⬜ Próximo |
-| M4 | Preferências, consentimento (só online), autostart, atalho global, `--doctor` | `v0.3.0` | ⬜ Não iniciado |
+| M3 | Bandeja + janela GTK4 + cache | `v0.2.0` | ✅ **Concluído em 2026-08-23** |
+| **M4** | Preferências, consentimento (só online), autostart, atalho global, `--doctor` | `v0.3.0` | ⬜ Próximo |
 | M5 | `.deb` + workflow de release + README completo + roteiro manual | `v1.0.0` | ⬜ Não iniciado |
 
 ---
@@ -73,6 +73,7 @@ Ressalva de empacotamento: **`ctranslate2` não existe no APT** do Ubuntu 24.04.
 | D-08 | Consentimento explícito de primeiro uso; histórico opt-in | A ferramenta lê qualquer pixel da tela, incluindo dados sensíveis | ✅ Firme |
 | D-09 | M1 é uma fatia vertical em CLI, sem GUI | Resolve os maiores riscos técnicos (corrida do portal, comportamento do `interactive`) antes de investir em interface | ✅ Firme |
 | D-10 | Empacotamento apenas `.deb` via GitHub Releases | Um usuário, uma distribuição | ✅ Firme |
+| D-18 | **UI em pt-BR, CLI em inglês.** Exceções mantêm texto em inglês (vão para log e relatório de bug); `ui/messages.py` é dono do que o usuário lê | Decisão do usuário em 2026-08-23; a separação evita mistura de idiomas e mantém logs úteis | ✅ **Aprovado pelo usuário** |
 | D-11 | **Clique esquerdo na bandeja abre o menu**, com "Capturar e traduzir" no primeiro item | Convenção do StatusNotifierItem sob GNOME; ação direta no clique não é possível | ✅ **Aprovado pelo usuário (PA-05, 2026-08-23)** |
 | D-12 | **Provider offline `local_ct2`** com CTranslate2 + OPUS-MT int8, entregue no M4 | Elimina exposição de conteúdo de tela a terceiros e a dependência de rede e de conta de faturamento, para quem optar | ✅ Firme (pesquisa registrada na seção 2) |
 | D-13 | Modelos offline **fora do `.deb`**, baixados sob demanda; `ctranslate2` em venv privado | ~80–100 MB por direção, e `ctranslate2` não está no APT | ✅ **Aprovado pelo usuário (PA-11, 2026-08-23)** |
@@ -124,22 +125,17 @@ Duas coisas exigem uma sessão gráfica real e uma pessoa na frente da tela:
 1. **Fechar PA-04/R3:** rodar `.venv/bin/python scripts/verify_portal_behaviour.py`, selecionar uma região e ler o veredito. Ele responde se o `interactive: true` deixa cópia em `~/Pictures/Screenshots` ou no clipboard. **Registrar o resultado aqui e na SPEC.**
 2. **Primeira captura real ponta a ponta:** `.venv/bin/translate-linux --set-api-key` e depois `--capture`. Até aqui o caminho portal→arquivo só foi exercitado contra um portal falso, e a tradução só contra uma sessão HTTP falsa.
 
-### M3 — bandeja, janela de resultado e cache
+### M4 — preferências, consentimento, autostart e atalho global
 
 Trabalhar em `feature/*` a partir de `develop`.
 
-1. ~~Instalar `gir1.2-ayatanaappindicator3-0.1`~~ — **não serve**: é GTK 3 (ver diário de 2026-08-23). O pacote está instalado mas não será usado.
-2. `Adw.Application` com `HANDLES_COMMAND_LINE` para instância única e ativação D-Bus (RF-09, RF-10), preservando as flags atuais da CLI.
-3. `tray.py` falando SNI direto sobre GDBus (RF-49). O **registro do item já está verificado**; o que falta provar é `com.canonical.dbusmenu` para o menu (R15). Detectar ausência do `StatusNotifierWatcher` (RF-12). Sob GNOME o clique esquerdo abre o menu, então "Capturar e traduzir" é o primeiro item (D-11).
-4. `ui/result.py`: tradução em destaque, original recolhido, copiar, trocar idioma e **editar o original para retraduzir** (RF-32) — a válvula de escape para erro de OCR, ainda mais importante agora que o modelo local erra mais que a API.
-5. Threading obrigatório: OCR e tradução fora da thread do GTK, com `GLib.idle_add` (RF-34). O `LocalTranslator` já tem lock interno.
-6. Chamar `LocalTranslator.unload_if_idle()` num timer do GLib — o método existe e está testado desde o M2, mas **ninguém o chama ainda**; sem isso o modelo fica residente para sempre (RF-43, NFR-P3).
-7. `translate/cache.py`: SQLite com chave `sha256(texto‖origem‖destino‖provider)`, expurgo LRU (RF-28).
-8. Tag `v0.2.0`.
-
-### Decisão pendente que o M3 força
-
-**Idioma da interface.** A CLI está em inglês; a SPEC (FE9) pede pt-BR na v1. O M3 traz a primeira UI de verdade, então é a hora de decidir e aplicar por inteiro — gettext com tudo traduzido, ou assumir inglês. Não deixar pela metade.
+1. **GSettings**: criar `data/io.github.rmorais.TranslateLinux.gschema.xml` com as chaves da SPEC e compilar no `postinst`. Hoje as preferências vivem só em memória (o idioma escolhido no menu some ao reiniciar).
+2. `ui/preferences.py` (`Adw.PreferencesWindow`): idioma de destino, idiomas de OCR, escala, provider, gerenciar modelos offline (instalar/remover, reaproveitando `translate/models.py`), autostart.
+3. `ui/consent.py`: exigido **só** ao escolher um provider online (RF-35); com o padrão offline nada sai da máquina e o diálogo não aparece.
+4. Autostart: gerenciar `~/.config/autostart/translate-linux.desktop` com `X-GNOME-Autostart-Delay=5` (RF-37).
+5. Atalho global via GSettings do GNOME (`media-keys custom-keybindings` → `translate-linux --capture`), já que o portal `GlobalShortcuts` não existe aqui (IC4).
+6. `--doctor` (NFR-O5): sessão, portal, watcher, tesseract e idiomas, motor offline, modelos instalados. Boa parte já existe espalhada em `--portal-info` e `--list-models`.
+7. Tag `v0.3.0`.
 
 ### Pendências de baixo risco
 
@@ -353,3 +349,19 @@ tesseract --list-langs
 **O que ainda NÃO foi verificado:** o menu. O SNI delega o menu a `com.canonical.dbusmenu`, protocolo verboso que o spike não implementou. Esse é o risco **R15** do M3 — o análogo do R12 no M1, e deve ser atacado primeiro pelo mesmo motivo.
 
 **Alternativas descartadas:** rebaixar tudo para GTK 3 (perde libadwaita 1.5 e contradiz D-02); processo auxiliar em GTK 3 só para a bandeja (dois toolkits e IPC para um ícone).
+
+### 2026-08-23 — M3 concluído (tag `v0.2.0`), validado na máquina real
+
+**Entregue:** bandeja funcionando, janela de resultado em pt-BR, cache de traduções, e `--tray` para rodar residente. O usuário confirmou o fluxo completo: ícone → menu → seleção → OCR → tradução offline.
+
+**Módulos novos:** `tray.py` (SNI + dbusmenu sobre GDBus), `ui/menu.py` (modelo do menu, testável), `ui/result.py` (janela GTK4), `ui/messages.py` (textos em pt-BR), `translate/cache.py` (cache + `CachingProvider`), `app.py` (`Adw.Application` residente), `capture/portal.capture_async`.
+
+**Gates:** ruff limpo, mypy `--strict` em 48 arquivos, **435 testes**.
+
+**Bug que quebrou o primeiro teste do usuário:** `show_outcome` esvaziava um `AdwPreferencesGroup` percorrendo `get_first_child()`. O widget devolvido é a caixa **interna** do Adwaita, que não pode ser removida — a condição nunca mudava, o laço girava para sempre e o processo era morto. O laço ainda por cima era código morto: nada é adicionado àquele grupo. **Nenhum teste podia ter pego**, porque toda a cobertura de UI era de lógica pura e a janela nunca era construída. Agora existe `tests/integration/test_result_window.py`, que constrói a janela de verdade — verificado que trava se o defeito for reintroduzido — e um `timeout = 60` por teste, para que um laço infinito falhe em vez de pendurar a suíte.
+
+**Problema de design resolvido no caminho:** `capture_interactive` cria o próprio `MainLoop`, o que congela o GTK (o toolkit já é dono do contexto padrão). Foi preciso `capture_async`, mantendo a mesma ordenação assinar-antes-de-chamar do R12.
+
+**Duas pontas soltas do M2 fechadas:** `unload_if_idle` finalmente tem quem o chame (timer do GLib), e o cache foi ligado ao pipeline como `CachingProvider` — ambos existiam e estavam testados, mas nada os usava.
+
+**R13 confirmado em uso real:** "My name is Reginaldo" virou "O meu nome é Reginaldo" — fraseado de português europeu. Inerente ao OPUS-MT en→pt; sem ajuste. A mitigação continua sendo sinalizar a origem e permitir editar e retraduzir.
