@@ -9,11 +9,11 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase SDD** | Em implementação. SPEC **v1.4** |
-| **Marco atual** | **M4 concluído**, tag `v0.3.0`. Próximo: M5 (`.deb` e release) |
+| **Fase SDD** | **v1.0.0 entregue.** SPEC v1.4 |
+| **Marco atual** | **M5 concluído.** Todos os marcos entregues |
 | **Bloqueado por** | Nada |
-| **Código de produção** | Aplicativo completo, faltando empacotamento. **495 testes**, mypy strict e ruff limpos |
-| **Git** | 32 commits em `develop`, tags até `v0.3.0`. **Sem remoto configurado — bloqueia o M5** |
+| **Código de produção** | Completo e empacotado. **499 testes**, CI verde, `.deb` publicado |
+| **Git** | `main` e `develop` em `reginaldoMorais/translate-linux`, tags até `v1.0.0`, release publicado |
 | **Última atualização** | 2026-08-23 |
 
 ### Progresso por marco
@@ -25,7 +25,7 @@
 | M2 | **Provider offline `local_ct2`** + comandos de instalação | `v0.1.0` | ✅ **Concluído em 2026-08-23** |
 | M3 | Bandeja + janela GTK4 + cache | `v0.2.0` | ✅ **Concluído em 2026-08-23** |
 | M4 | Preferências, consentimento (só online), autostart, atalho global, `--doctor` | `v0.3.0` | ✅ **Concluído em 2026-08-23** |
-| **M5** | `.deb` + workflow de release + README completo + roteiro manual | `v1.0.0` | ⬜ Próximo |
+| M5 | `.deb` + workflow de release + README completo + roteiro manual | `v1.0.0` | ✅ **Concluído em 2026-08-23** |
 
 ---
 
@@ -125,18 +125,14 @@ Duas coisas exigem uma sessão gráfica real e uma pessoa na frente da tela:
 1. **Fechar PA-04/R3:** rodar `.venv/bin/python scripts/verify_portal_behaviour.py`, selecionar uma região e ler o veredito. Ele responde se o `interactive: true` deixa cópia em `~/Pictures/Screenshots` ou no clipboard. **Registrar o resultado aqui e na SPEC.**
 2. **Primeira captura real ponta a ponta:** `.venv/bin/translate-linux --set-api-key` e depois `--capture`. Até aqui o caminho portal→arquivo só foi exercitado contra um portal falso, e a tradução só contra uma sessão HTTP falsa.
 
-### M5 — empacotamento e release
+### Próximos passos
 
-**Bloqueado por você:** não existe repositório remoto. As tags `v0.0.1` a `v0.3.0` só existem localmente, e sem remoto não há Actions nem Release.
+Todos os marcos planejados foram entregues. O que resta é operação e melhoria:
 
-Quando o repo existir:
-
-1. `packaging/debian/` — `control` com `Depends:` (ver seção 8), `rules`, `postinst` (compilar o schema GSettings com `glib-compile-schemas`), `postrm` (remover schema e autostart), `changelog` derivado da tag.
-2. `data/translate-linux.desktop` e um ícone próprio em `data/icons/` — hoje usamos `accessories-dictionary` do tema.
-3. `.github/workflows/release.yml` disparado por tag `v*`: roda a suíte, valida que `__version__` bate com a tag, constrói o `.deb` (`arch: all`), instala num contêiner limpo como smoke test, gera `SHA256SUMS` e publica o Release.
-4. Assistente de primeira execução (RF-46): instalar motor + modelo numa etapa guiada. Hoje isso é manual via `--install-engine` e `--install-model`.
-5. `docs/manual-test-plan.md` — o roteiro que o mantenedor executa em Zorin real antes de cada tag. É o portão de qualidade real, já que a CI não exercita Wayland de verdade.
-6. Tag `v1.0.0`.
+1. **Executar `docs/manual-test-plan.md` na máquina real.** É o portão de qualidade que a CI não substitui, e ainda não foi executado por inteiro.
+2. **Assistente de primeira execução (RF-46):** hoje instalar motor e modelo é manual (`--install-engine`, `--install-model`). Quem instalar o `.deb` sem ler o README vai encontrar um app que não traduz.
+3. **RF-30 no provider offline:** se o idioma de origem for igual ao de destino, o texto passa direto — implementado; mas não há detecção de idioma, então o padrão `en` erra silenciosamente se a captura for de outro idioma.
+4. **Modelos além de `en→pt`:** só o par padrão está previsto; a interface já lista e remove, mas instalar continua sendo pela CLI.
 
 ### Pendências de baixo risco
 
@@ -384,3 +380,20 @@ tesseract --list-langs
 **Fragilidade registrada:** o atalho global escreve em `org.gnome.settings-daemon.plugins.media-keys`, porque o portal `GlobalShortcuts` não existe aqui (IC4). É a parte mais sujeita a quebrar numa atualização do GNOME. Por isso tudo em `shortcuts.py` falha suavemente: um atalho que não registra é inconveniente, nunca fatal.
 
 **Ainda manual:** instalar motor e modelo continua sendo `--install-engine` + `--install-model`. O assistente de primeira execução (RF-46) ficou para o M5, junto com o empacotamento, que é quando ele passa a importar de verdade.
+
+### 2026-08-23 — M5 concluído, v1.0.0 publicado
+
+**Entregue:** `.deb` (51 KB) construído por `packaging/build-deb.sh`, workflow de release por tag, ícone e `.desktop` próprios, roteiro de teste manual, e o Release publicado em `github.com/reginaldoMorais/translate-linux/releases/tag/v1.0.0`.
+
+**Decisão de empacotamento:** `dpkg-deb` sobre uma árvore montada, **não** debhelper. O pacote é Python puro, `arch: all`, com um punhado de arquivos de dados — o script inteiro cabe numa leitura, não exige build-deps, e permitiu verificar o layout localmente sem instalar nada. Como a distribuição é por GitHub Releases e não pelo arquivo Debian, a maquinaria do dh-python não pagava o próprio custo.
+
+**App ID definido:** `io.github.reginaldomorais.TranslateLinux` (era `rmorais`). É o schema GSettings, o nome D-Bus e o schema do libsecret, então precisava assentar antes do empacotamento congelá-lo. Configurações guardadas sob o ID antigo não são migradas — os padrões voltam a valer.
+
+**Quatro defeitos que só a CI revelou**, todos reais:
+
+1. **Testes acoplados à minha máquina.** Os testes da CLI passavam aqui e falhavam na CI porque a disponibilidade do motor offline era lida do sistema de arquivos real. Eles asseguravam o estado desta máquina, não o comportamento do código. Corrigido e **verificado escondendo o `.venv-offline` e os modelos localmente**.
+2. **`Gio.Settings.new` num schema ausente aborta o processo** via `g_error` — não lança, então o `try/except` não pegava, e a suíte morria com SIGTRAP mudo. Isso era **bug de produção**: crasharia em qualquer desktop não-GNOME. Agora o schema é verificado por `SettingsSchemaSource` antes de construir qualquer `Settings`.
+3. **`font.getlength()` devolve lixo no runner** (valores na casa dos milhões, e negativos), gerando um PNG que o Tesseract rejeitava com erro opaco de libpng. A asserção de dimensão que eu tinha acabado de acrescentar foi o que tornou a causa visível. A fixture deixou de perguntar métricas à fonte.
+4. **A fonte carrega mas não desenha glifos no runner.** A fixture agora confere a própria premissa contando tinta na tela e **pula** com explicação, em vez de acusar o OCR por algo que não é culpa dele.
+
+**Sequência de diagnóstico que funcionou:** cada correção tornou o erro seguinte mais legível — SIGTRAP mudo → erro de libpng → "fixture width is implausible" → "assert 'Tt' == 'The quick brown fox'". Vale lembrar disso: investir em mensagem de falha rendeu mais que investir em adivinhação.
