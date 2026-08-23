@@ -31,7 +31,7 @@ system-deps: ## Install the distribution packages the app needs
 $(VENV)/bin/activate: pyproject.toml
 > $(SYSTEM_PYTHON) -m venv --system-site-packages $(VENV)
 > $(PY) -m pip install --quiet --upgrade pip
-> $(PY) -m pip install --quiet -e ".[dev]"
+> $(PY) -m pip install --quiet -e ".[dev,offline]"
 > @touch $(VENV)/bin/activate
 
 dev-setup: $(VENV)/bin/activate ## Create the virtualenv and install the project

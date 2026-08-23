@@ -29,6 +29,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The offline engine. Kept out of "dependencies" because the .deb cannot
+# declare an apt dependency on ctranslate2, which Ubuntu does not package
+# (RF-42); at runtime the application installs it into a private virtualenv.
+# Declared here so that the development environment stays reproducible.
+offline = [
+  "ctranslate2>=4.0,<5",
+  "sentencepiece>=0.2,<0.3",
+]
 dev = [
   "mypy>=1.8",
   "pytest>=8.0",
