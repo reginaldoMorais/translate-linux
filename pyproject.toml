@@ -29,10 +29,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# The offline engine. Kept out of "dependencies" because the .deb cannot
-# declare an apt dependency on ctranslate2, which Ubuntu does not package
-# (RF-42); at runtime the application installs it into a private virtualenv.
-# Declared here so that the development environment stays reproducible.
+# The offline engine. Never installed into the main environment: Ubuntu does
+# not package ctranslate2, so the application installs it into a private
+# virtualenv and reaches it by extending sys.path (RF-42). Use
+# "make offline-engine" for development; this extra only records the versions.
 offline = [
   "ctranslate2>=4.0,<5",
   "sentencepiece>=0.2,<0.3",
@@ -105,6 +105,12 @@ pretty = true
 # everything through introspection at runtime, and Pillow only gained a
 # py.typed marker in a later release.
 module = ["gi.*", "PIL.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# The offline engine is imported from a private virtualenv at runtime, so it is
+# never resolvable during type checking.
+module = ["ctranslate2.*", "sentencepiece.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
