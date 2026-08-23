@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -102,3 +103,95 @@ class TestDescribe:
         monkeypatch.setattr(engine, "_already_importable", lambda: False)
         monkeypatch.setattr(engine, "find_engine", lambda: tmp_path / "site-packages")
         assert str(tmp_path) in describe()
+
+
+class TestInstallRobustness:
+    """An installation that reports success and does not work is the worst
+    outcome: it sends the user looking in the wrong place."""
+
+    def test_a_half_built_venv_is_cleared_before_retrying(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """ "python3 -m venv" builds the tree before failing on ensurepip."""
+        leftover = tmp_path / "venv-offline"
+        (leftover / "bin").mkdir(parents=True)
+        (leftover / "bin" / "activate").write_text("stale", encoding="utf-8")
+
+        seen: list[list[str]] = []
+
+        def fake_run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            seen.append(command)
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        monkeypatch.setattr(engine.subprocess, "run", fake_run)
+        monkeypatch.setattr(engine, "site_packages_of", lambda _v: None)
+
+        with pytest.raises(engine.EngineInstallFailed):
+            engine.install(leftover)
+
+        assert not (leftover / "bin" / "activate").exists(), "the stale tree survived"
+
+    def test_a_missing_venv_module_is_explained_with_the_apt_command(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(
+                command, 1, "", "ensurepip is not available. On Debian systems..."
+            )
+
+        monkeypatch.setattr(engine.subprocess, "run", fake_run)
+
+        with pytest.raises(engine.EngineInstallFailed, match="apt install python3-venv"):
+            engine.install(tmp_path / "venv")
+
+    def test_a_missing_pip_is_explained(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(command, 1, "", "No module named pip")
+
+        monkeypatch.setattr(engine.subprocess, "run", fake_run)
+
+        with pytest.raises(engine.EngineInstallFailed, match="apt install python3-pip"):
+            engine.install(tmp_path / "venv")
+
+    def test_a_failed_install_leaves_nothing_behind(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        target = tmp_path / "venv"
+
+        def fake_run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            target.mkdir(parents=True, exist_ok=True)
+            return subprocess.CompletedProcess(command, 1, "", "boom")
+
+        monkeypatch.setattr(engine.subprocess, "run", fake_run)
+
+        with pytest.raises(engine.EngineInstallFailed):
+            engine.install(target)
+        assert not target.exists()
+
+
+class TestVerify:
+    def test_an_importable_engine_passes(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            engine.subprocess,
+            "run",
+            lambda c, **_k: subprocess.CompletedProcess(c, 0, "", ""),
+        )
+        engine.verify(tmp_path / "venv")  # must not raise
+
+    def test_files_present_but_not_importable_is_reported(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Directories existing is not the same as the engine working."""
+        monkeypatch.setattr(
+            engine.subprocess,
+            "run",
+            lambda c, **_k: subprocess.CompletedProcess(
+                c, 1, "", "ImportError: libstdc++.so.6: version not found"
+            ),
+        )
+        with pytest.raises(engine.EngineInstallFailed, match="cannot be imported"):
+            engine.verify(tmp_path / "venv")

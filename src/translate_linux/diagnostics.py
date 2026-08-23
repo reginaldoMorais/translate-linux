@@ -109,9 +109,22 @@ def _tesseract() -> list[Check]:
 
 
 def _translation() -> list[Check]:
+    from translate_linux.constants import data_dir
     from translate_linux.translate import engine, models
 
-    checks = [Check("offline engine", engine.describe(), OK if engine.is_available() else WARN)]
+    available = engine.is_available()
+    checks = [Check("offline engine", engine.describe(), OK if available else FAIL)]
+    if not available:
+        # Name every path that was searched: "not installed" after a successful
+        # install means it landed somewhere this process does not look.
+        checks.append(
+            Check(
+                "searched for engine in",
+                " | ".join(str(path) for path in engine.candidate_venvs()),
+                WARN,
+            )
+        )
+    checks.append(Check("data directory", str(data_dir())))
 
     installed = models.installed()
     if installed:

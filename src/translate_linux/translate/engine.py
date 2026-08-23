@@ -10,6 +10,7 @@ captures, which is what makes the second translation instant.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -23,7 +24,8 @@ VENV_NAME = "venv-offline"
 INSTALL_HINT = (
     "The offline translation engine is not installed.\n"
     "  Install it with: translate-linux --install-engine\n"
-    "  (for development: make offline-engine)"
+    "  If that has already been run, 'translate-linux --doctor' reports every\n"
+    "  location that was searched."
 )
 
 
@@ -131,6 +133,12 @@ def install(target: Path | None = None) -> Path:
     venv = target or default_venv()
     venv.parent.mkdir(parents=True, exist_ok=True)
 
+    # A previous attempt can leave a virtualenv that exists but has no pip --
+    # "python3 -m venv" builds the tree before it fails on ensurepip. Retrying
+    # into that shell produces confusing errors, so it is cleared first.
+    if venv.exists() and site_packages_of(venv) is None:
+        shutil.rmtree(venv, ignore_errors=True)
+
     steps: list[list[str]] = [
         [sys.executable, "-m", "venv", str(venv)],
         [str(venv / "bin" / "python"), "-m", "pip", "install", "--upgrade", "pip"],
@@ -139,15 +147,46 @@ def install(target: Path | None = None) -> Path:
     for command in steps:
         completed = subprocess.run(command, capture_output=True, text=True, check=False)
         if completed.returncode != 0:
-            raise EngineInstallFailed(
-                f"'{' '.join(command[:3])}...' exited with {completed.returncode}:\n"
-                f"{completed.stderr.strip()[:500]}"
-            )
+            shutil.rmtree(venv, ignore_errors=True)  # never leave a half-built venv
+            raise EngineInstallFailed(_explain_failure(command, completed))
 
     location = site_packages_of(venv)
     if location is None:
         raise EngineInstallFailed("The engine was installed but cannot be found afterwards.")
+
+    verify(venv)
     return location
+
+
+def verify(venv: Path) -> None:
+    """Prove the engine really imports, rather than trusting that files exist.
+
+    Reporting success because a directory appeared is how an installation ends
+    up "done" and still unusable.
+    """
+    completed = subprocess.run(
+        [str(venv / "bin" / "python"), "-c", "import ctranslate2, sentencepiece"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise EngineInstallFailed(
+            f"The engine was installed but cannot be imported:\n{completed.stderr.strip()[:500]}"
+        )
+
+
+def _explain_failure(command: list[str], completed: subprocess.CompletedProcess[str]) -> str:
+    stderr = completed.stderr.strip()
+    hint = ""
+    if "ensurepip" in stderr or "python3-venv" in stderr:
+        hint = (
+            "\n\nThis system cannot create a virtualenv. Install the missing "
+            "package with:\n  sudo apt install python3-venv python3-pip"
+        )
+    elif "No module named pip" in stderr:
+        hint = "\n\nInstall pip with:\n  sudo apt install python3-pip"
+    return f"'{' '.join(command[:3])}...' exited with {completed.returncode}:\n{stderr[:500]}{hint}"
 
 
 def describe() -> str:
@@ -171,4 +210,5 @@ __all__ = [
     "is_available",
     "load",
     "site_packages_of",
+    "verify",
 ]
