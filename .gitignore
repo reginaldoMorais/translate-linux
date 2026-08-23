@@ -26,5 +26,8 @@ htmlcov/
 .idea/
 *.swp
 
+# Compiled from data/*.gschema.xml
+data/gschemas.compiled
+
 # Runtime artefacts
 *.log

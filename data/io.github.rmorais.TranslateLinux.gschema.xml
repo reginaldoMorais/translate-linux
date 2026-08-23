@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="io.github.rmorais.TranslateLinux" path="/io/github/rmorais/TranslateLinux/">
+
+    <key name="target-language" type="s">
+      <default>'pt'</default>
+      <summary>Target language</summary>
+      <description>Language code translations are produced in.</description>
+    </key>
+
+    <key name="source-language" type="s">
+      <default>'en'</default>
+      <summary>Source language</summary>
+      <description>
+        Assumed language of the captured text. Local models are
+        single-direction and cannot detect it.
+      </description>
+    </key>
+
+    <key name="favourite-languages" type="as">
+      <default>['pt','en','es']</default>
+      <summary>Languages offered in the tray menu</summary>
+    </key>
+
+    <key name="ocr-languages" type="s">
+      <default>'eng+por'</default>
+      <summary>Tesseract languages</summary>
+      <description>Language codes joined by '+', as Tesseract expects.</description>
+    </key>
+
+    <key name="ocr-psm" type="i">
+      <range min="0" max="13"/>
+      <default>6</default>
+      <summary>Tesseract page segmentation mode</summary>
+    </key>
+
+    <key name="preprocess-scale" type="d">
+      <range min="1.0" max="8.0"/>
+      <default>3.0</default>
+      <summary>Upscale factor applied before recognition</summary>
+    </key>
+
+    <key name="min-confidence" type="i">
+      <range min="0" max="100"/>
+      <default>30</default>
+      <summary>Confidence below which an isolated word is discarded</summary>
+    </key>
+
+    <key name="provider" type="s">
+      <choices>
+        <choice value="local_ct2"/>
+        <choice value="google_cloud_v2"/>
+      </choices>
+      <default>'local_ct2'</default>
+      <summary>Translation back end</summary>
+    </key>
+
+    <key name="offline-idle-unload-minutes" type="i">
+      <range min="1" max="600"/>
+      <default>10</default>
+      <summary>Minutes of inactivity before the local model is unloaded</summary>
+    </key>
+
+    <key name="autostart" type="b">
+      <default>true</default>
+      <summary>Start automatically on login</summary>
+    </key>
+
+    <key name="global-shortcut" type="s">
+      <default>'&lt;Super&gt;&lt;Shift&gt;t'</default>
+      <summary>Keyboard shortcut that triggers a capture</summary>
+    </key>
+
+    <key name="history-enabled" type="b">
+      <default>false</default>
+      <summary>Keep a local history of translations</summary>
+      <description>
+        Off by default: captures may contain anything that was on screen.
+      </description>
+    </key>
+
+    <key name="consent-version" type="i">
+      <default>0</default>
+      <summary>Version of the privacy terms the user accepted</summary>
+      <description>
+        Only relevant for online providers. Zero means no consent has been
+        given, which is the normal state while translation stays local.
+      </description>
+    </key>
+
+  </schema>
+</schemalist>

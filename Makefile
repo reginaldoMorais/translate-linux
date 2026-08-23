@@ -22,7 +22,7 @@ APT_PACKAGES := python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 \
                 tesseract-ocr tesseract-ocr-eng tesseract-ocr-por tesseract-ocr-osd \
                 python3-sentencepiece libglib2.0-bin
 
-.PHONY: help system-deps dev-setup offline-engine lint format typecheck test coverage check run clean distclean
+.PHONY: help system-deps dev-setup schema offline-engine lint format typecheck test coverage check run clean distclean
 
 help: ## Show this help
 > @grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -42,6 +42,10 @@ dev-setup: $(VENV)/bin/activate ## Create the virtualenv and install the project
 > @$(PY) -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk; \
 >   print(f'PyGObject OK - GTK {Gtk.get_major_version()}.{Gtk.get_minor_version()}')" \
 >   || echo "WARNING: PyGObject unavailable - install python3-gi (make system-deps)"
+
+schema: ## Compile the GSettings schema for use from the checkout
+> glib-compile-schemas --strict data
+> @echo "compiled data/gschemas.compiled"
 
 offline-engine: ## Install the offline translation engine into its private venv
 > $(SYSTEM_PYTHON) -m venv $(OFFLINE_VENV)
@@ -74,6 +78,7 @@ run: dev-setup ## Run the application from the working tree
 
 clean: ## Remove build and test artefacts
 > rm -rf build dist .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov
+> rm -f data/gschemas.compiled
 > find . -name __pycache__ -type d -prune -exec rm -rf {} +
 > find . -name '*.egg-info' -type d -prune -exec rm -rf {} +
 
