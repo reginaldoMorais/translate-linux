@@ -55,7 +55,10 @@ jobs:
       - name: Type-check
         run: .venv/bin/mypy
 
+      # -v so that a crash names the test it died on. A process that aborts
+      # never prints pytest's summary, and progress dots identify nothing.
       - name: Test
         run: |
           make schema
-          xvfb-run -a dbus-run-session -- .venv/bin/pytest --cov=translate_linux --cov-report=term-missing
+          xvfb-run -a dbus-run-session -- .venv/bin/pytest -v \
+            --cov=translate_linux --cov-report=term-missing

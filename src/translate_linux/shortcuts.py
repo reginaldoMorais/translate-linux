@@ -50,8 +50,26 @@ def is_supported() -> bool:
     return source.lookup(MEDIA_KEYS_SCHEMA, True) is not None
 
 
+def _require_schema(factory: SettingsFactory) -> None:
+    """Refuse to touch GSettings unless the schema is really installed.
+
+    ``Gio.Settings.new`` on a missing schema calls ``g_error``, which aborts the
+    process outright -- it does not raise, so it cannot be caught. On anything
+    that is not GNOME the schema is simply absent, and without this check the
+    application dies with a bare SIGTRAP and no explanation.
+    """
+    if factory is not _default_factory:
+        return  # an injected factory is a test double, not real GSettings
+    if not is_supported():
+        raise ShortcutError(
+            "GNOME custom keybindings are not available on this desktop, so a "
+            "global shortcut cannot be registered."
+        )
+
+
 def registered_slots(factory: SettingsFactory = _default_factory) -> tuple[str, ...]:
     """Return the object paths of every custom keybinding GNOME knows about."""
+    _require_schema(factory)
     try:
         return tuple(factory(MEDIA_KEYS_SCHEMA).get_strv("custom-keybindings"))
     except Exception as error:
@@ -79,6 +97,7 @@ def install(
     if not binding.strip():
         raise ShortcutError("The shortcut is empty.")
 
+    _require_schema(factory)
     media_keys = factory(MEDIA_KEYS_SCHEMA)
     slots = list(media_keys.get_strv("custom-keybindings"))
     if OUR_SLOT not in slots:
@@ -94,6 +113,7 @@ def install(
 
 def uninstall(factory: SettingsFactory = _default_factory) -> bool:
     """Remove the capture shortcut; report whether one was registered."""
+    _require_schema(factory)
     media_keys = factory(MEDIA_KEYS_SCHEMA)
     slots = list(media_keys.get_strv("custom-keybindings"))
     if OUR_SLOT not in slots:

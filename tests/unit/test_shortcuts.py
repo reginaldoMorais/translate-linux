@@ -153,3 +153,38 @@ class TestFailureHandling:
 
         with pytest.raises(ShortcutError, match="unavailable"):
             registered_slots(explode)
+
+
+class TestMissingSchema:
+    """Gio.Settings.new aborts the process on a missing schema; it cannot raise.
+
+    That makes the check before it the only thing standing between a non-GNOME
+    desktop and a bare SIGTRAP, so it is asserted rather than assumed.
+    """
+
+    def test_an_absent_schema_is_refused_before_gsettings_is_touched(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import translate_linux.shortcuts as module
+
+        monkeypatch.setattr(module, "is_supported", lambda: False)
+        with pytest.raises(ShortcutError, match="not available on this desktop"):
+            registered_slots()
+
+    def test_install_refuses_too(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import translate_linux.shortcuts as module
+
+        monkeypatch.setattr(module, "is_supported", lambda: False)
+        with pytest.raises(ShortcutError, match="not available on this desktop"):
+            install("<Super>t")
+
+    def test_uninstall_refuses_too(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import translate_linux.shortcuts as module
+
+        monkeypatch.setattr(module, "is_supported", lambda: False)
+        with pytest.raises(ShortcutError, match="not available on this desktop"):
+            uninstall()
+
+    def test_an_injected_factory_bypasses_the_check(self, gnome: FakeGnome) -> None:
+        """Test doubles are not GSettings and cannot abort anything."""
+        assert registered_slots(gnome) == ()
