@@ -62,17 +62,49 @@ def capture_and_translate(
 ) -> CaptureOutcome:
     """Capture a region, recognise its text and translate it.
 
-    Passing ``provider=None`` stops after recognition, which is how the
-    OCR-only mode and the consent refusal path of RF-35 behave.
+    This is the blocking path, used by the command line. The tray application
+    captures asynchronously and calls :func:`recognise_and_translate` directly,
+    because the portal answers through the main loop GTK already runs.
 
     Raises:
         CaptureCancelled: the user dismissed the selection.
         NoTextRecognised: nothing legible was found in the region.
     """
-    capture_path = capture_interactive(timeout=capture_timeout)
+    image = capture_interactive(timeout=capture_timeout)
+    return recognise_and_translate(
+        image,
+        provider=provider,
+        target=target,
+        source=source,
+        ocr_languages=ocr_languages,
+        psm=psm,
+        scale=scale,
+        min_confidence=min_confidence,
+    )
+
+
+def recognise_and_translate(
+    image: Path,
+    *,
+    provider: TranslationProvider | None,
+    target: str,
+    source: str | None = None,
+    ocr_languages: str = DEFAULT_LANGUAGES,
+    psm: int = DEFAULT_PSM,
+    scale: float = DEFAULT_SCALE,
+    min_confidence: float = DEFAULT_MIN_CONFIDENCE,
+) -> CaptureOutcome:
+    """Recognise ``image`` and translate what it says.
+
+    Takes ownership of ``image``: it holds whatever was on screen, so it is
+    deleted before returning, including when this fails (RF-05).
+
+    Passing ``provider=None`` stops after recognition, which is how the
+    OCR-only mode behaves.
+    """
     prepared: Path | None = None
     try:
-        prepared = _prepare(capture_path, scale)
+        prepared = _prepare(image, scale)
         result = recognise(
             prepared,
             languages=ocr_languages,
@@ -80,9 +112,7 @@ def capture_and_translate(
             min_confidence=min_confidence,
         )
     finally:
-        # RF-05: the capture holds whatever was on screen, so it must not
-        # outlive the pipeline -- including when the pipeline fails.
-        _discard(capture_path)
+        _discard(image)
         _discard(prepared)
 
     text = normalize(result.text)
@@ -94,6 +124,29 @@ def capture_and_translate(
         original=text,
         translation=translation,
         mean_confidence=result.mean_confidence,
+        ocr_languages=ocr_languages,
+    )
+
+
+def translate_text(
+    text: str,
+    *,
+    provider: TranslationProvider | None,
+    target: str,
+    source: str | None = None,
+    ocr_languages: str = DEFAULT_LANGUAGES,
+) -> CaptureOutcome:
+    """Translate text that is already recognised.
+
+    Used when the user corrects the recognised text and asks again, which is
+    the escape hatch for an OCR mistake (RF-32).
+    """
+    translation = provider.translate(text, source, target) if provider is not None else None
+    return CaptureOutcome(
+        original=text,
+        translation=translation,
+        # Confidence belongs to recognition; edited text has none to report.
+        mean_confidence=100.0,
         ocr_languages=ocr_languages,
     )
 

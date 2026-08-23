@@ -204,3 +204,63 @@ class TestNoTextRecognised:
 
         with pytest.raises(NoTextRecognised, match="'deu\\+fra'"):
             capture_and_translate(provider=None, target="pt", ocr_languages="deu+fra")
+
+
+class TestRecogniseAndTranslate:
+    """The path the tray application takes, with the capture done separately."""
+
+    def test_an_existing_image_is_recognised_and_translated(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from translate_linux.orchestrator import recognise_and_translate
+
+        image = tmp_path / "capture.png"
+        Image.new("RGB", (40, 20), (255, 255, 255)).save(image)
+        monkeypatch.setattr(orchestrator, "runtime_dir", lambda: tmp_path)
+        set_recognition(monkeypatch, ocr_result("Hello world"))
+
+        outcome = recognise_and_translate(image, provider=FakeProvider(), target="pt")
+
+        assert outcome.original == "Hello world"
+        assert outcome.translation is not None
+
+    def test_the_image_is_deleted_even_on_failure(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from translate_linux.orchestrator import recognise_and_translate
+
+        image = tmp_path / "capture.png"
+        Image.new("RGB", (40, 20), (255, 255, 255)).save(image)
+        monkeypatch.setattr(orchestrator, "runtime_dir", lambda: tmp_path)
+        set_recognition(monkeypatch, TesseractFailed("boom"))
+
+        with pytest.raises(TesseractFailed):
+            recognise_and_translate(image, provider=None, target="pt")
+
+        assert not image.exists()
+
+
+class TestTranslateText:
+    def test_already_recognised_text_is_translated(self) -> None:
+        from translate_linux.orchestrator import translate_text
+
+        provider = FakeProvider()
+        outcome = translate_text("Corrected text", provider=provider, target="pt")
+
+        assert outcome.original == "Corrected text"
+        assert outcome.translation is not None
+        assert outcome.translation.text == "[pt] Corrected text"
+
+    def test_without_a_provider_the_text_passes_through(self) -> None:
+        from translate_linux.orchestrator import translate_text
+
+        outcome = translate_text("Some text", provider=None, target="pt")
+        assert outcome.translation is None
+        assert outcome.translated_text == "Some text"
+
+    def test_an_explicit_source_reaches_the_provider(self) -> None:
+        from translate_linux.orchestrator import translate_text
+
+        provider = FakeProvider()
+        translate_text("Hola", provider=provider, target="pt", source="es")
+        assert provider.seen == [("Hola", "es", "pt")]

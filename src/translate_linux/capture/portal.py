@@ -17,6 +17,7 @@ always in place first.
 from __future__ import annotations
 
 import secrets
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
@@ -251,6 +252,135 @@ def capture_interactive(
             bus.signal_unsubscribe(subscription)
 
     return _resolve(outcome, timeout)
+
+
+def capture_async(
+    on_done: Callable[[Path], None],
+    on_error: Callable[[Exception], None],
+    *,
+    connection: Gio.DBusConnection | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
+    interactive: bool = True,
+    modal: bool = True,
+) -> None:
+    """Request a capture without blocking, delivering the result via callback.
+
+    :func:`capture_interactive` drives a main loop of its own, which is right
+    for the command line and wrong inside a GTK application: the toolkit
+    already owns the default main context, and nesting a second loop there
+    freezes the interface. This variant subscribes, issues the call and
+    returns, letting the running loop deliver the answer.
+
+    Both callbacks run on the main context, so they may touch widgets directly.
+    """
+    bus = connection or session_bus()
+
+    unique_name = bus.get_unique_name()
+    if not unique_name:
+        on_error(PortalUnavailable("The session bus connection has no unique name."))
+        return
+
+    token = generate_handle_token()
+    expected_path = request_object_path(unique_name, token)
+
+    outcome = _Outcome()
+    subscriptions: list[int] = []
+    timeout_id = 0
+
+    def finish() -> None:
+        nonlocal timeout_id
+        if timeout_id:
+            GLib.source_remove(timeout_id)
+            timeout_id = 0
+        for subscription in subscriptions:
+            bus.signal_unsubscribe(subscription)
+        subscriptions.clear()
+        try:
+            on_done(_resolve(outcome, timeout))
+        except Exception as error:
+            on_error(error)
+
+    def on_response(
+        _connection: Gio.DBusConnection,
+        _sender: str,
+        _path: str,
+        _interface: str,
+        _signal: str,
+        parameters: GLib.Variant,
+    ) -> None:
+        if outcome.answered:
+            return
+        code, results = parameters.unpack()
+        outcome.code = int(code)
+        outcome.results = results
+        finish()
+
+    def subscribe(path: str) -> None:
+        subscriptions.append(
+            bus.signal_subscribe(
+                PORTAL_BUS_NAME,
+                REQUEST_INTERFACE,
+                "Response",
+                path,
+                None,
+                Gio.DBusSignalFlags.NONE,
+                on_response,
+            )
+        )
+
+    # RF-02: subscribe before calling, exactly as the synchronous path does.
+    subscribe(expected_path)
+
+    def on_call_done(source: Gio.DBusConnection, result: Gio.AsyncResult) -> None:
+        nonlocal timeout_id
+        try:
+            reply = source.call_finish(result)
+        except GLib.Error as error:
+            for subscription in subscriptions:
+                bus.signal_unsubscribe(subscription)
+            subscriptions.clear()
+            on_error(PortalUnavailable(f"The Screenshot portal refused the call: {error.message}"))
+            return
+
+        handle = str(reply.unpack()[0])
+        if handle != expected_path:
+            subscribe(handle)
+
+        if outcome.answered:
+            return
+
+        def on_timeout() -> bool:
+            nonlocal timeout_id
+            timeout_id = 0
+            if not outcome.answered:
+                outcome.timed_out = True
+                finish()
+            return bool(GLib.SOURCE_REMOVE)
+
+        timeout_id = GLib.timeout_add_seconds(max(1, int(timeout)), on_timeout)
+
+    bus.call(
+        PORTAL_BUS_NAME,
+        PORTAL_OBJECT_PATH,
+        SCREENSHOT_INTERFACE,
+        "Screenshot",
+        GLib.Variant(
+            "(sa{sv})",
+            (
+                "",
+                {
+                    "handle_token": GLib.Variant("s", token),
+                    "interactive": GLib.Variant("b", interactive),
+                    "modal": GLib.Variant("b", modal),
+                },
+            ),
+        ),
+        GLib.VariantType("(o)"),
+        Gio.DBusCallFlags.NONE,
+        -1,
+        None,
+        on_call_done,
+    )
 
 
 def _resolve(outcome: _Outcome, timeout: float) -> Path:
