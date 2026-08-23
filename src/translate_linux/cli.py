@@ -102,6 +102,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="download and install an offline model, for example 'en-pt'",
     )
     actions.add_argument(
+        "--tray",
+        action="store_true",
+        help="run resident in the system tray",
+    )
+    actions.add_argument(
         "--list-models",
         action="store_true",
         help="list the offline models installed on this machine",
@@ -175,6 +180,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _install_model(args.install_model)
     if args.list_models:
         return _list_models()
+    if args.tray:
+        return _tray(args)
     if args.capture:
         return _capture(args)
 
@@ -297,6 +304,13 @@ def _list_models() -> int:
         size = sum(f.stat().st_size for f in model.path.rglob("*") if f.is_file())
         print(f"  {model.pair}  v{model.version}  {size / 1e6:.0f} MB  {model.path}")
     return EXIT_OK
+
+
+def _tray(args: argparse.Namespace) -> int:
+    from translate_linux.app import TranslateLinuxApplication
+
+    target = args.target or default_target_language()
+    return int(TranslateLinuxApplication(target_language=target).run([PROG]))
 
 
 def _build_provider(args: argparse.Namespace) -> object | int:
