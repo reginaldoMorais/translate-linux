@@ -87,6 +87,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="remove the stored Cloud Translation API key",
     )
     actions.add_argument(
+        "--doctor",
+        action="store_true",
+        help="report the state of everything the application depends on",
+    )
+    actions.add_argument(
+        "--autostart",
+        choices=["on", "off", "status"],
+        help="control whether the tray starts with the session",
+    )
+    actions.add_argument(
+        "--shortcut",
+        metavar="BINDING",
+        help="register a global capture shortcut, for example '<Super><Shift>t' "
+        "(use 'off' to remove it)",
+    )
+    actions.add_argument(
         "--portal-info",
         action="store_true",
         help="report the screenshot portal version available on this session",
@@ -172,6 +188,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _set_api_key()
     if args.clear_api_key:
         return _clear_api_key()
+    if args.doctor:
+        return _doctor()
+    if args.autostart:
+        return _autostart(args.autostart)
+    if args.shortcut:
+        return _shortcut(args.shortcut)
     if args.portal_info:
         return _portal_info()
     if args.install_engine:
@@ -237,6 +259,55 @@ def _portal_info() -> int:
     print(f"Screenshot portal   : version {version}")
     if version < 2:
         print("warning: interactive region selection needs version 2 or newer.")
+    return EXIT_OK
+
+
+def _doctor() -> int:
+    from translate_linux.diagnostics import collect, has_failures, render
+
+    checks = collect()
+    print(render(checks))
+    return EXIT_FAILURE if has_failures(checks) else EXIT_OK
+
+
+def _autostart(action: str) -> int:
+    from translate_linux import autostart
+
+    if action == "status":
+        print("enabled" if autostart.is_enabled() else "disabled")
+        return EXIT_OK
+
+    enabled = action == "on"
+    autostart.apply(enabled)
+    if enabled:
+        print(f"Autostart enabled: {autostart.entry_path()}")
+    else:
+        print("Autostart disabled.")
+    return EXIT_OK
+
+
+def _shortcut(binding: str) -> int:
+    from translate_linux.shortcuts import (
+        ShortcutError,
+        find_conflicts,
+        install,
+        uninstall,
+    )
+
+    try:
+        if binding.lower() == "off":
+            print("Shortcut removed." if uninstall() else "No shortcut was registered.")
+            return EXIT_OK
+
+        conflicts = find_conflicts(binding)
+        for name, slot in conflicts:
+            print(f"warning: {binding} is already used by {name!r} ({slot})", file=sys.stderr)
+
+        install(binding)
+    except ShortcutError as error:
+        return _fail(str(error))
+
+    print(f"Shortcut registered: {binding}")
     return EXIT_OK
 
 

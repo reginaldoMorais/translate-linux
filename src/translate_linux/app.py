@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     # Imported for annotations only: the runtime imports stay inside the
     # methods so that starting the tray does not pay for Pillow or an HTTP
     # stack it may never use (NFR-P4).
+    from translate_linux.config import Settings
     from translate_linux.orchestrator import CaptureOutcome
     from translate_linux.translate.base import TranslationProvider
     from translate_linux.translate.local_ct2 import LocalTranslator
@@ -45,12 +46,22 @@ FAVOURITE_LANGUAGES = ("pt", "en", "es")
 class TranslateLinuxApplication(Adw.Application):
     """Tray-resident application (RF-09, RF-10)."""
 
-    def __init__(self, *, target_language: str = "pt") -> None:
+    def __init__(self, *, target_language: str | None = None) -> None:
         super().__init__(
             application_id=APP_ID,
             flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
         )
-        self._target = target_language
+        from translate_linux.config import SchemaMissing, Settings
+
+        try:
+            self._settings: Settings | None = Settings()
+        except SchemaMissing:
+            # Without a schema the application still works; it just forgets.
+            self._settings = None
+
+        self._target = target_language or (
+            self._settings.target_language if self._settings else "pt"
+        )
         self._tray: TrayIcon | None = None
         self._busy = False
         self._translator: TranslationProvider | None = None
@@ -86,13 +97,14 @@ class TranslateLinuxApplication(Adw.Application):
     # -- tray -----------------------------------------------------------
 
     def _menu_model(self) -> MenuModel:
+        favourites = self._settings.favourite_languages if self._settings else FAVOURITE_LANGUAGES
         languages = tuple(
             MenuItem(
                 label=messages.language_name(code),
                 checked=(code == self._target),
                 action=lambda code=code: self._set_target(code),  # type: ignore[misc]
             )
-            for code in FAVOURITE_LANGUAGES
+            for code in favourites
         )
         return MenuModel(
             [
@@ -100,6 +112,7 @@ class TranslateLinuxApplication(Adw.Application):
                 separator(),
                 MenuItem(label=messages.MENU_TARGET_LANGUAGE, children=languages),
                 separator(),
+                MenuItem(label=messages.MENU_PREFERENCES, action=self.open_preferences),
                 MenuItem(label=messages.MENU_QUIT, action=self.quit),
             ]
         )
@@ -137,6 +150,31 @@ class TranslateLinuxApplication(Adw.Application):
 
     def _set_target(self, code: str) -> None:
         self._target = code
+        if self._settings is not None:
+            self._settings.target_language = code  # remembered across restarts
+        self._refresh_tray()
+
+    def open_preferences(self) -> None:
+        """Show the preferences window."""
+        from translate_linux.ui.preferences import PreferencesWindow
+
+        if self._settings is None:
+            self._notify(
+                "As preferências não estão disponíveis: o esquema de configuração "
+                "não foi encontrado."
+            )
+            return
+        window = PreferencesWindow(self, self._settings, on_changed=self._on_settings_changed)
+        window.present()
+
+    def _on_settings_changed(self) -> None:
+        settings = self._settings
+        if settings is None:
+            return
+        self._target = settings.target_language
+        # The provider may have changed; build it again on the next capture.
+        self._translator = None
+        self._engine = None
         self._refresh_tray()
 
     # -- capture --------------------------------------------------------
@@ -196,7 +234,8 @@ class TranslateLinuxApplication(Adw.Application):
 
         translator = self._translator
         if translator is None:
-            self._engine = LocalTranslator()
+            idle = self._settings.offline_idle_unload_seconds if self._settings else 600.0
+            self._engine = LocalTranslator(idle_timeout=idle)
             translator = CachingProvider(self._engine, TranslationCache())
             self._translator = translator
         return translator

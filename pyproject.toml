@@ -118,7 +118,9 @@ ignore_missing_imports = true
 # PyGObject resolves classes through introspection, so every GTK type is Any and
 # subclassing a widget trips disallow_subclassing_any. That is unavoidable in a
 # GTK application; the exemption is limited to the modules that define widgets.
-module = ["translate_linux.app", "translate_linux.ui.result"]
+# Widget definitions live in the ui package and in app.py; nowhere else needs
+# the exemption, so nowhere else gets it.
+module = ["translate_linux.app", "translate_linux.ui.*"]
 disallow_subclassing_any = false
 
 [tool.pytest.ini_options]
