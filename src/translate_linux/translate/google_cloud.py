@@ -24,7 +24,11 @@ from translate_linux.translate.base import (
     TranslationRateLimited,
     TranslationUnavailable,
 )
-from translate_linux.translate.chunking import DEFAULT_MAX_CHARS, split_text
+from translate_linux.translate.chunking import (
+    DEFAULT_MAX_CHARS,
+    restore_padding,
+    split_sentences,
+)
 
 API_URL = "https://translation.googleapis.com/language/translate/v2"
 PROVIDER_NAME = "google_cloud_v2"
@@ -95,7 +99,7 @@ class GoogleCloudTranslator:
         if not text.strip():
             return Translation(text=text, detected_source=None, target=target, provider=self.name)
 
-        chunks = split_text(text, self._max_chars)
+        chunks = split_sentences(text, self._max_chars)
 
         # Chunks are carried with their position rather than looked up by
         # identity: CPython reuses the object for single-character strings, so
@@ -112,7 +116,7 @@ class GoogleCloudTranslator:
                     f"Expected {len(group)} translations, received {len(results)}."
                 )
             for (index, chunk), (rendered, language) in zip(group, results, strict=True):
-                translated[index] = _restore_padding(chunk, rendered)
+                translated[index] = restore_padding(chunk, rendered)
                 detected = detected or language
 
         rebuilt = "".join(translated.get(index, chunk) for index, chunk in enumerate(chunks))
@@ -221,10 +225,3 @@ def _parse_response(response: requests.Response) -> list[tuple[str, str | None]]
             )
         )
     return results
-
-
-def _restore_padding(original: str, translated: str) -> str:
-    """Re-attach the whitespace that was stripped before the request."""
-    leading = original[: len(original) - len(original.lstrip())]
-    trailing = original[len(original.rstrip()) :]
-    return f"{leading}{translated}{trailing}"

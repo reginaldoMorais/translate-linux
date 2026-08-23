@@ -42,6 +42,41 @@ def split_text(text: str, max_chars: int = DEFAULT_MAX_CHARS) -> list[str]:
     return _split(text, max_chars, 0)
 
 
+def split_sentences(text: str, max_chars: int = DEFAULT_MAX_CHARS) -> list[str]:
+    """Split at paragraph and sentence boundaries, whatever the total length.
+
+    :func:`split_text` only cuts when the text outgrows the budget, which is
+    right for an engine that accepts a whole document. It is wrong for one that
+    translates a sequence at a time: handing it two paragraphs joined by a blank
+    line returns a single line, and the layout is gone. Splitting first and
+    reassembling afterwards is what keeps the shape of the capture.
+
+    The concatenation of the result reproduces the input exactly.
+
+    >>> split_sentences("First.\n\nSecond.")
+    ['First.', '\n\n', 'Second.']
+    """
+    if max_chars <= 0:
+        raise ValueError("max_chars must be positive")
+    if not text:
+        return []
+
+    pieces = [text]
+    for boundary in _BOUNDARIES[:2]:  # paragraph, then sentence
+        expanded: list[str] = []
+        for piece in pieces:
+            expanded.extend(part for part in boundary.split(piece) if part)
+        pieces = expanded
+
+    capped: list[str] = []
+    for piece in pieces:
+        if len(piece) > max_chars:
+            capped.extend(_split(piece, max_chars, 2))  # fall through to word level
+        else:
+            capped.append(piece)
+    return capped
+
+
 def _split(text: str, max_chars: int, level: int) -> list[str]:
     if len(text) <= max_chars:
         return [text]
@@ -71,3 +106,22 @@ def _split(text: str, max_chars: int, level: int) -> list[str]:
     if current:
         chunks.append(current)
     return chunks
+
+
+def restore_padding(original: str, translated: str) -> str:
+    """Re-attach the whitespace that was stripped before translation.
+
+    Engines are given the trimmed chunk, because leading and trailing blanks
+    carry no meaning to translate but do confuse tokenisers. Putting the
+    original padding back is what keeps the reassembled text laid out as it was.
+
+    >>> restore_padding("  hello\n\n", "olá")
+    '  olá\n\n'
+    """
+    if not original.strip():
+        # All whitespace: leading and trailing would both be the whole string,
+        # and concatenating them would double it.
+        return original
+    leading = original[: len(original) - len(original.lstrip())]
+    trailing = original[len(original.rstrip()) :]
+    return f"{leading}{translated}{trailing}"
