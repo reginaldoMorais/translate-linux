@@ -52,8 +52,30 @@ def render(text: str, path: Path, *, size: int = 18, invert: bool = False) -> Pa
             fill=foreground,
             font=font,
         )
+    _require_visible_glyphs(image, invert=invert)
     image.save(path)
     return path
+
+
+def _require_visible_glyphs(image: Image.Image, *, invert: bool) -> None:
+    """Skip rather than fail when the font draws nothing.
+
+    On the CI runner the DejaVu file is present and loads, yet produces no
+    usable glyphs -- recognition returned "Tt" for a full sentence. That is a
+    broken fixture, not a defect in the code under test, and reporting it as an
+    OCR failure would be a lie. The premise is checked instead, and an
+    unsatisfied premise skips.
+    """
+    greyscale = image.convert("L")
+    histogram = greyscale.histogram()
+    ink = sum(histogram[128:]) if invert else sum(histogram[:128])
+    total = greyscale.width * greyscale.height
+
+    if ink < total * 0.002:
+        pytest.skip(
+            "the font renders no glyphs in this environment, so the fixture "
+            "cannot be built (check fonts-dejavu-core and Pillow's FreeType)"
+        )
 
 
 def read(text: str, tmp_path: Path, **render_kwargs: object) -> str:
