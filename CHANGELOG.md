@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-23
+
+### Added
+
+- Offline translation with CTranslate2 and OPUS-MT models, now the default
+  provider: no per-character cost, no network, and nothing leaves the machine.
+- `--install-engine`, `--install-model` and `--list-models` commands.
+- `--provider` to choose between the local engine and the Google API, and
+  `--source` for language pairs that do not start from English.
+- `split_sentences`, which always cuts at paragraph and sentence boundaries so
+  that layout survives translation whatever the length of the text.
+- A guard in the unit suite that fails loudly if a test reaches the real
+  screenshot portal.
+
+### Changed
+
+- The Cloud Translation API is no longer the default provider; it remains
+  available through `--provider google`.
+
+### Fixed
+
+- `restore_padding` doubled the content of a whitespace-only chunk.
+
 ## [0.0.1] - 2026-08-23
 
 ### Added

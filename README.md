@@ -3,9 +3,9 @@
 Selecione uma região da tela como no `PrintScreen` do Zorin OS e, em vez de
 salvar uma imagem, receba **o texto reconhecido e traduzido**.
 
-> **Status: M1 — pipeline completo em linha de comando.** Captura, OCR e
-> tradução já funcionam via `translate-linux --capture`. A bandeja do sistema e
-> a janela de resultado chegam no M2. A especificação completa está em
+> **Status: M2 — tradução offline funcionando.** Captura, OCR e tradução local
+> funcionam via `translate-linux --capture`, sem rede e sem custo por uso. A
+> bandeja do sistema e a janela de resultado chegam no M3. A especificação está em
 > [`docs/plans/SPEC.md`](docs/plans/SPEC.md) e o estado corrente do projeto em
 > [`docs/plans/HANDOFF.md`](docs/plans/HANDOFF.md).
 
@@ -99,27 +99,46 @@ CI. Para executá-los deliberadamente:
 
 ## Uso
 
-Guarde a chave da Cloud Translation API no chaveiro (só é preciso uma vez):
+### Preparo (uma vez)
+
+```bash
+.venv/bin/translate-linux --install-engine        # motor offline, ~40 MB
+.venv/bin/translate-linux --install-model en-pt   # modelo en->pt, ~66 MB
+```
+
+Confira o que ficou instalado com `--list-models`.
+
+### Capturar e traduzir
+
+```bash
+.venv/bin/translate-linux --capture                 # offline, idioma do seu locale
+.venv/bin/translate-linux --capture --target en     # idioma de destino explícito
+.venv/bin/translate-linux --capture --source es     # origem diferente de inglês
+.venv/bin/translate-linux --capture --ocr-only      # só reconhece, não traduz
+.venv/bin/translate-linux --capture --json          # saída para script
+```
+
+A tradução roda **localmente por padrão**: nada sai da sua máquina e não há
+custo por caractere. Os modelos locais são de direção única e não detectam o
+idioma de origem — o padrão é inglês, ajustável com `--source`.
+
+Se quiser mais qualidade e aceitar o custo por caractere, há o provider oficial
+do Google:
 
 ```bash
 .venv/bin/translate-linux --set-api-key
-```
-
-Capture uma região e traduza:
-
-```bash
-.venv/bin/translate-linux --capture                 # idioma do seu locale
-.venv/bin/translate-linux --capture --target en     # idioma de destino explícito
-.venv/bin/translate-linux --capture --ocr-only      # só reconhece, não traduz
-.venv/bin/translate-linux --capture --json          # saída para script
+.venv/bin/translate-linux --capture --provider google
 ```
 
 Outros comandos:
 
 | Comando | O que faz |
 |---|---|
+| `--list-models` | Lista o motor e os modelos offline instalados |
+| `--install-engine` | Instala o motor offline em um virtualenv privado |
+| `--install-model PAR` | Baixa e instala um modelo, por exemplo `en-pt` |
 | `--portal-info` | Mostra o tipo de sessão e a versão do portal de captura |
-| `--set-api-key` | Guarda a chave da API no chaveiro (sem eco no terminal) |
+| `--set-api-key` | Guarda a chave da API do Google no chaveiro (sem eco) |
 | `--clear-api-key` | Remove a chave guardada |
 
 Cancelar a seleção com `Esc` encerra em silêncio, sem erro e sem consumir cota.
@@ -159,18 +178,21 @@ docs/plans/           # SPEC.md e HANDOFF.md
 | Marco | Escopo | Tag |
 |---|---|---|
 | ~~M0~~ | Estrutura, ferramentas e CI | — |
-| **M1** | Fatia vertical em CLI: portal → Tesseract → tradução | `v0.0.1` |
-| M2 | Bandeja, janela de resultado, normalização e cache | `v0.1.0` |
-| M3 | Preferências, consentimento, autostart, atalho global | `v0.2.0` |
-| M4 | Tradução offline (CTranslate2 + OPUS-MT) | `v0.3.0` |
+| ~~M1~~ | Fatia vertical em CLI: portal → Tesseract → tradução | `v0.0.1` |
+| **M2** | Tradução offline (CTranslate2 + OPUS-MT) | `v0.1.0` |
+| M3 | Bandeja, janela de resultado e cache | `v0.2.0` |
+| M4 | Preferências, consentimento, autostart, atalho global | `v0.3.0` |
 | M5 | Empacotamento `.deb` e pipeline de release | `v1.0.0` |
 
 ## Privacidade
 
-O texto reconhecido é enviado ao provider de tradução configurado. O
-aplicativo pede consentimento explícito antes da primeira tradução, mantém o
-histórico desligado por padrão e nunca registra o conteúdo reconhecido em log.
-A partir do M4 haverá um modo **totalmente offline**, sem envio a terceiros.
+**Por padrão nada sai da sua máquina.** A tradução roda localmente, e o
+aplicativo nunca registra o conteúdo reconhecido em log. Capturas temporárias
+são criadas com permissão `0600` e apagadas logo após o reconhecimento.
+
+Se você escolher explicitamente um provider online, o texto reconhecido passa a
+ser enviado a terceiros — e nesse caso o aplicativo pedirá consentimento antes
+da primeira tradução.
 
 ## Licença
 
