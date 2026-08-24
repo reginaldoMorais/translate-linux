@@ -111,3 +111,30 @@ def test_a_cached_outcome_renders(window: ResultWindow) -> None:
 def test_the_loading_stage_can_be_updated(window: ResultWindow) -> None:
     window.set_stage("Traduzindo…")
     window.show_outcome(make_outcome())
+
+
+class TestAboutWindow:
+    """Built against the real toolkit, because Adw.AboutWindow validates its
+    own properties at construction and rejects some silently."""
+
+    def test_it_builds(self, application: Adw.Application) -> None:
+        from translate_linux.ui.about import build_about_window
+
+        window = build_about_window()
+        assert window.get_version()
+
+    def test_it_shows_the_running_version(self, application: Adw.Application) -> None:
+        from translate_linux import __version__
+        from translate_linux.ui.about import build_about_window
+
+        assert build_about_window().get_version() == __version__
+
+    def test_it_carries_the_diagnostic_report(self, application: Adw.Application) -> None:
+        from translate_linux.ui.about import build_about_window
+
+        assert "session type" in build_about_window().get_debug_info()
+
+    def test_the_application_name_is_in_portuguese(self, application: Adw.Application) -> None:
+        from translate_linux.ui.about import build_about_window
+
+        assert build_about_window().get_application_name() == "Tradutor de Tela"

@@ -16,7 +16,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
-from translate_linux import autostart, shortcuts  # noqa: E402
+from translate_linux import __version__, autostart, shortcuts  # noqa: E402
 from translate_linux.config import Settings  # noqa: E402
 from translate_linux.translate import engine, models  # noqa: E402
 from translate_linux.ui import messages  # noqa: E402
@@ -209,7 +209,22 @@ class PreferencesWindow(Adw.PreferencesWindow):
         buttons.append(remove)
         shortcut_group.add(buttons)
         page.add(shortcut_group)
+
+        about_group = Adw.PreferencesGroup(title="Sobre")
+        about_row = Adw.ActionRow(title=messages.APP_TITLE)
+        about_row.set_subtitle(f"Versão {__version__}")
+        about_button = Gtk.Button(label="Ver detalhes", valign=Gtk.Align.CENTER)
+        about_button.connect("clicked", lambda _b: self._open_about())
+        about_row.add_suffix(about_button)
+        about_row.set_activatable_widget(about_button)
+        about_group.add(about_row)
+        page.add(about_group)
         return page
+
+    def _open_about(self) -> None:
+        from translate_linux.ui.about import build_about_window
+
+        build_about_window(self).present()
 
     # -- helpers --------------------------------------------------------
 

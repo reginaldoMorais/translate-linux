@@ -3,7 +3,7 @@
 Selecione uma região da tela como no `PrintScreen` do Zorin OS e, em vez de
 salvar uma imagem, receba **o texto reconhecido e traduzido**.
 
-> **Status: v1.0.1.** Bandeja, janela de resultado, tradução offline,
+> **Status: v1.1.0.** Bandeja, janela de resultado, tradução offline,
 > preferências persistentes, autostart, atalho global e pacote `.deb`
 > publicado automaticamente a partir de uma tag. A especificação está em
 > [`docs/plans/SPEC.md`](docs/plans/SPEC.md) e o estado corrente do projeto em
@@ -178,7 +178,7 @@ Baixe o `.deb` da [página de releases](https://github.com/reginaldoMorais/trans
 e instale:
 
 ```bash
-sudo apt install ./translate-linux_1.0.1_all.deb
+sudo apt install ./translate-linux_1.1.0_all.deb
 translate-linux --install-engine        # motor offline, ~40 MB
 translate-linux --install-model en-pb   # inglês -> português do Brasil, ~66 MB
 translate-linux --doctor                # confere se está tudo certo

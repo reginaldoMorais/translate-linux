@@ -121,6 +121,7 @@ class TranslateLinuxApplication(Adw.Application):
                 MenuItem(label=messages.MENU_TARGET_LANGUAGE, children=languages),
                 separator(),
                 MenuItem(label=messages.MENU_PREFERENCES, action=self.open_preferences),
+                MenuItem(label=messages.MENU_ABOUT, action=self.open_about),
                 MenuItem(label=messages.MENU_QUIT, action=self.quit),
             ]
         )
@@ -174,6 +175,12 @@ class TranslateLinuxApplication(Adw.Application):
             return
         window = PreferencesWindow(self, self._settings, on_changed=self._on_settings_changed)
         window.present()
+
+    def open_about(self) -> None:
+        """Show the About window, with the diagnostic report inside it."""
+        from translate_linux.ui.about import build_about_window
+
+        build_about_window().present()
 
     def _on_settings_changed(self) -> None:
         settings = self._settings

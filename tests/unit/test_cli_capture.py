@@ -46,6 +46,10 @@ def isolated_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     monkeypatch.setattr(credentials, "lookup_api_key", lambda _provider: "a-key")
     monkeypatch.setattr(engine, "is_available", lambda: True)
+    # Whether a tray happens to be running on the developer's session is not
+    # part of what these tests assert. Left alone, a leftover instance makes
+    # every capture delegate and return 0.
+    monkeypatch.setattr(cli, "delegate_to_running_instance", lambda: False)
 
 
 def stub_pipeline(

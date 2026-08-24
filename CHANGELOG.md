@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-24
+
 ### Added
 
+- An About window, reachable from the tray menu and from the preferences.
+  Its troubleshooting section carries the same report `--doctor` prints,
+  copyable in one click: with no telemetry, supporting an installation
+  depends on the user being able to hand that over without opening a
+  terminal.
 - Brazilian Portuguese as a target of its own. The catalogue spells it `pb`,
   and the generic `pt` model produces largely European Portuguese -- "ficheiro",
   "ecrã", "estou a trabalhar" -- which reads as a foreign translation rather

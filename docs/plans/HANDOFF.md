@@ -10,10 +10,10 @@
 | Campo | Valor |
 |---|---|
 | **Fase SDD** | **v1.0.0 entregue.** SPEC **v1.5** |
-| **Marco atual** | **v1.0.1 publicada** com as três correções de uso real |
+| **Marco atual** | **v1.1.0**: português do Brasil como idioma próprio |
 | **Bloqueado por** | Nada |
-| **Código de produção** | Completo e empacotado. **516 testes**, CI verde |
-| **Git** | `main` e `develop` em `reginaldoMorais/translate-linux`, última tag `v1.0.1`, release publicado |
+| **Código de produção** | Completo e empacotado. **536 testes**, CI verde |
+| **Git** | `main` e `develop` em `reginaldoMorais/translate-linux`, última tag `v1.1.0`, release publicado |
 | **Última atualização** | 2026-08-23 |
 
 ### Progresso por marco
@@ -433,3 +433,31 @@ Em 8 frases realistas de interface: 2 europeias, 2 brasileiras, 4 neutras.
 **Beco sem saída testado:** o vocabulário do modelo **contém** `>>por<<` e `>>pob<<` (`pob` = português brasileiro no OPUS). Mas o modelo **não responde** a eles — nem prefixando o texto, nem como peça de token, nem como `target_prefix` do CTranslate2. Não tente de novo.
 
 **Caminho que existe (PA-13):** `Helsinki-NLP/opus-mt-tc-big-en-pt` declara `target language(s): pob por` e usa `>>pob<<` para brasileiro. Converter exige `ct2-transformers-converter` com `torch` e `transformers` — pesado, mas uma vez só. Não avaliado quanto a tamanho em disco nem qualidade.
+
+### 2026-08-24 — Português do Brasil existe no catálogo, sob o código `pb` (v1.1.0)
+
+**Eu havia afirmado que o índice do Argos não oferecia variante do português. Estava errado.** A busca que fiz filtrava por códigos começando em `pt` ou contendo `br`; o catálogo usa **`pb`** para "Portuguese (Brazil)", e ele estava na lista o tempo todo, entre `pl` e `pt`. Só apareceu porque o usuário insistiu na pergunta.
+
+**A diferença é maior que preferência de dialeto** (medido lado a lado, mesmo tamanho de pacote, 66 MB):
+
+| inglês | `en-pt` | `en-pb` |
+|---|---|---|
+| Open the file | Abre o ficheiro | Abra o arquivo |
+| Clean the screen | Limpa o ecrã | Limpe a tela |
+| The user logged in | O utilizador fez login | O usuário entrou |
+| I am working now | Estou a trabalhar agora | Estou trabalhando agora |
+| My cell phone is broken | O meu telemóvel está avariado | Meu celular está quebrado |
+
+Para um leitor brasileiro o primeiro lê como tradução **estrangeira**, não como tradução ruim. Isso rebaixa o R13 de forma significativa: a inconsistência de variante deixa de existir para quem usa `pb`.
+
+**Como foi integrado:** `pb` virou idioma de primeira classe (`Português (Brasil)`), `pt` passou a se chamar `Português (Portugal)` — que é o que ele de fato produz — e o locale `pt_BR` seleciona `pb` automaticamente. Como `pb` **não é código ISO**, ele é traduzido para `pt-BR` na fronteira dos providers online (e `pt` para `pt-PT`), em `google_cloud.PROVIDER_LANGUAGE_CODES`.
+
+**Lição de método:** procurei por padrão de nome em vez de listar o catálogo inteiro e ler. Um `sorted({p['to_code'] for p in index})` de uma linha teria respondido na primeira tentativa. Vale a mesma desconfiança na próxima vez que eu disser "não existe" a partir de uma busca com filtro.
+
+### 2026-08-24 — Janela Sobre, e o mesmo erro de isolamento pela segunda vez
+
+**Entregue:** `ui/about.py` com `Adw.AboutWindow`, alcançável pelo menu da bandeja e pelas Preferências. A seção de solução de problemas é preenchida com **o mesmo relatório que o `--doctor` imprime** — sem telemetria, dar suporte depende de o usuário conseguir entregar isso, e o botão de copiar do Adwaita faz isso sem pedir que ele abra um terminal. Uma implementação só, dois caminhos até ela.
+
+**O erro de isolamento apareceu de novo, em forma nova.** Onze testes da CLI quebraram porque uma instância da bandeja tinha ficado viva de um teste anterior: com ela no barramento, `--capture` delega e devolve 0. A fixture de isolamento já neutralizava a chave de API e a disponibilidade do motor; faltava a delegação. **É a segunda vez que o mesmo padrão morde** — a primeira foi o motor offline lido do sistema de arquivos real.
+
+O padrão a vigiar: *qualquer coisa que o teste leia do ambiente em vez de receber por injeção*. Verificado desta vez rodando a suíte **com** uma bandeja ativa de propósito, que é o estado que a quebrava.
