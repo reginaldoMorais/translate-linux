@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-23
+
+Three defects found on a real installation outside the development
+machine. All three failed silently, which is what made them worth
+recording rather than merely fixing.
+
+### Fixed
+
+- The package did not depend on `python3-venv` or `python3-pip`, so
+  `--install-engine` could not build the private virtualenv at all.
+  `python3 -m venv` creates the directory tree before it fails on
+  ensurepip, which left something that looked installed and was not.
+  Installation now clears a half-built virtualenv before retrying, leaves
+  nothing behind on failure, names the apt command that fixes a missing
+  dependency, and finishes by importing the engine rather than trusting
+  that files appeared.
+- Adwaita parses toast titles as Pango markup, so a shortcut such as
+  `<Super><Shift>t` looked like an unknown tag and the widget rendered
+  nothing at all: confirming a shortcut produced an empty box with a
+  close button. Dynamic text going into a markup-aware widget is escaped.
+- `--capture` never contacted the running tray. A global shortcut can
+  only run a command, so the shortcut started a second, headless process
+  that captured into a terminal nobody was looking at, and appeared to do
+  nothing. The application now exposes a `capture` action over
+  `org.freedesktop.Application` and the command activates it, which also
+  makes it irrelevant which `translate-linux` comes first on `PATH`.
+- A missing GSettings schema aborted the process through `g_error`
+  instead of raising, which would have taken the application down on any
+  desktop that is not GNOME.
+
 ## [1.0.0] - 2026-08-23
 
 ### Added
