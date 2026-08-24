@@ -9,11 +9,11 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase SDD** | **v1.0.0 entregue.** SPEC v1.4 |
-| **Marco atual** | **M5 concluído.** Todos os marcos entregues |
+| **Fase SDD** | **v1.0.0 entregue.** SPEC **v1.5** |
+| **Marco atual** | Pós-release. Três correções em `main` **ainda não publicadas** |
 | **Bloqueado por** | Nada |
-| **Código de produção** | Completo e empacotado. **499 testes**, CI verde, `.deb` publicado |
-| **Git** | `main` e `develop` em `reginaldoMorais/translate-linux`, tags até `v1.0.0`, release publicado |
+| **Código de produção** | Completo e empacotado. **516 testes**, CI verde |
+| **Git** | `main` e `develop` em `reginaldoMorais/translate-linux`. Última tag `v1.0.0`; há correções depois dela |
 | **Última atualização** | 2026-08-23 |
 
 ### Progresso por marco
@@ -127,12 +127,20 @@ Duas coisas exigem uma sessão gráfica real e uma pessoa na frente da tela:
 
 ### Próximos passos
 
-Todos os marcos planejados foram entregues. O que resta é operação e melhoria:
+**Imediato: publicar a `v1.0.1`.** Há três correções em `main` depois da `v1.0.0`, todas para defeitos que o usuário encontrou em uso real:
 
-1. **Executar `docs/manual-test-plan.md` na máquina real.** É o portão de qualidade que a CI não substitui, e ainda não foi executado por inteiro.
-2. **Assistente de primeira execução (RF-46):** hoje instalar motor e modelo é manual (`--install-engine`, `--install-model`). Quem instalar o `.deb` sem ler o README vai encontrar um app que não traduz.
-3. **RF-30 no provider offline:** se o idioma de origem for igual ao de destino, o texto passa direto — implementado; mas não há detecção de idioma, então o padrão `en` erra silenciosamente se a captura for de outro idioma.
-4. **Modelos além de `en→pt`:** só o par padrão está previsto; a interface já lista e remove, mas instalar continua sendo pela CLI.
+1. `python3-venv` e `python3-pip` faltando no `Depends:` — o `--install-engine` não conseguia criar o venv privado
+2. Markup Pango não escapado — toasts com `<Super><Shift>t` renderizavam vazios
+3. `--capture` não delegava para a instância em execução — o atalho global não fazia nada
+
+O usuário pediu para validar o atalho antes de marcar a tag. **Confirmar com ele antes de publicar.**
+
+**Depois disso:**
+
+1. **Executar `docs/manual-test-plan.md` por inteiro.** Continua sendo o portão que a CI não substitui, e os três defeitos acima reforçam isso: nenhum era detectável por teste automatizado nesta máquina.
+2. **Assistente de primeira execução (RF-46):** instalar motor e modelo ainda é manual. Quem instalar o `.deb` sem ler o README encontra um app que não traduz — e agora sabemos que ele encontra isso *duas* vezes, porque o motor também dependia de pacotes não declarados.
+3. **Detecção de idioma de origem:** o padrão é `en` e não há detecção, então capturar outro idioma erra em silêncio.
+4. **Modelos além de `en→pt`:** instalar continua sendo pela CLI.
 
 ### Pendências de baixo risco
 
@@ -397,3 +405,17 @@ tesseract --list-langs
 4. **A fonte carrega mas não desenha glifos no runner.** A fixture agora confere a própria premissa contando tinta na tela e **pula** com explicação, em vez de acusar o OCR por algo que não é culpa dele.
 
 **Sequência de diagnóstico que funcionou:** cada correção tornou o erro seguinte mais legível — SIGTRAP mudo → erro de libpng → "fixture width is implausible" → "assert 'Tt' == 'The quick brown fox'". Vale lembrar disso: investir em mensagem de falha rendeu mais que investir em adivinhação.
+
+### 2026-08-23 — Três defeitos encontrados em uso real, depois da v1.0.0
+
+A v1.0.0 passou em 499 testes, na CI e no smoke test em contêiner limpo — e produziu três defeitos no primeiro uso fora desta máquina. **Os três falhavam em silêncio**, que é o padrão que liga os três.
+
+**1. `python3-venv` e `python3-pip` faltavam no `Depends:`.** Sem eles o `--install-engine` não cria o venv privado. O modo de falha é traiçoeiro: `python3 -m venv` monta a árvore de diretórios **antes** de falhar no `ensurepip`, deixando algo que parece instalado. Corrigido: dependências declaradas, venv pela metade é apagado antes de nova tentativa, falha não deixa resíduo, mensagem nomeia o `apt install`, e a instalação **termina importando o motor** em vez de confiar que arquivos apareceram.
+
+**2. Markup Pango não escapado.** Títulos de `Adw.Toast` são interpretados como markup. `Atalho registrado: <Super><Shift>t` faz o Pango falhar com `Unknown tag 'Super'`, e o widget renderiza **nada** — o usuário viu uma caixa vazia com botão de fechar. Texto que o Pango não parseia não degrada: some. Corrigido em todos os widgets com markup, não só no toast que apareceu.
+
+**3. `--capture` não delegava para a instância em execução.** Era a RF-09. Eu implementei o lado do aplicativo (`do_command_line`) e **nunca liguei o lado da CLI** — metade de um requisito, que é pior que nenhuma, porque parece pronto. O atalho global executava `translate-linux --capture`, que subia um segundo processo headless, capturava e escrevia num terminal inexistente. Corrigido expondo a ação `capture` em `org.freedesktop.Application` (interface que o `GApplication` já publicava) e ativando-a a partir da CLI. Efeito colateral bom: **torna irrelevante qual `translate-linux` está primeiro no `PATH`** — quem detém o nome no barramento faz o trabalho.
+
+**Erro de processo meu:** empurrei um commit com o `mypy` quebrado. O `make check` falhou e o `push` rodou na sequência porque o script não parava no erro. Corrigido no commit seguinte, mas o certo era ter parado.
+
+**O que isso mudou na SPEC (v1.5):** RF-09 reescrita nomeando o mecanismo exato (a ambiguidade foi o que permitiu implementar metade); RF-50 sobre escape de markup; IC8 sobre `Gio.Settings` abortar via `g_error`; decisão de empacotamento sem debhelper registrada; desvio de checksum do índice Argos documentado; riscos R16 e R17; e um adendo à Fase 3 sobre o que a primeira instalação real ensinou.
