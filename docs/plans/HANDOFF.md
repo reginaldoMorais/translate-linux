@@ -10,10 +10,10 @@
 | Campo | Valor |
 |---|---|
 | **Fase SDD** | **v1.0.0 entregue.** SPEC **v1.5** |
-| **Marco atual** | Pós-release. Três correções em `main` **ainda não publicadas** |
+| **Marco atual** | **v1.0.1 publicada** com as três correções de uso real |
 | **Bloqueado por** | Nada |
 | **Código de produção** | Completo e empacotado. **516 testes**, CI verde |
-| **Git** | `main` e `develop` em `reginaldoMorais/translate-linux`. Última tag `v1.0.0`; há correções depois dela |
+| **Git** | `main` e `develop` em `reginaldoMorais/translate-linux`, última tag `v1.0.1`, release publicado |
 | **Última atualização** | 2026-08-23 |
 
 ### Progresso por marco
@@ -127,15 +127,7 @@ Duas coisas exigem uma sessão gráfica real e uma pessoa na frente da tela:
 
 ### Próximos passos
 
-**Imediato: publicar a `v1.0.1`.** Há três correções em `main` depois da `v1.0.0`, todas para defeitos que o usuário encontrou em uso real:
-
-1. `python3-venv` e `python3-pip` faltando no `Depends:` — o `--install-engine` não conseguia criar o venv privado
-2. Markup Pango não escapado — toasts com `<Super><Shift>t` renderizavam vazios
-3. `--capture` não delegava para a instância em execução — o atalho global não fazia nada
-
-O usuário pediu para validar o atalho antes de marcar a tag. **Confirmar com ele antes de publicar.**
-
-**Depois disso:**
+**`v1.0.1` publicada em 2026-08-23** com as três correções de uso real. **O atalho global ainda não foi confirmado funcionando pelo usuário** — a correção foi verificada aqui (delegação responde de ambos os interpretadores), mas não em uso.
 
 1. **Executar `docs/manual-test-plan.md` por inteiro.** Continua sendo o portão que a CI não substitui, e os três defeitos acima reforçam isso: nenhum era detectável por teste automatizado nesta máquina.
 2. **Assistente de primeira execução (RF-46):** instalar motor e modelo ainda é manual. Quem instalar o `.deb` sem ler o README encontra um app que não traduz — e agora sabemos que ele encontra isso *duas* vezes, porque o motor também dependia de pacotes não declarados.
