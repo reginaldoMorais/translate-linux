@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from translate_linux.ui.result import ResultWindow
 
 IDLE_CHECK_SECONDS = 60
-FAVOURITE_LANGUAGES = ("pt", "en", "es")
+FAVOURITE_LANGUAGES = ("pb", "en", "es", "pt")
 
 
 class TranslateLinuxApplication(Adw.Application):

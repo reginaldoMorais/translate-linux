@@ -57,7 +57,11 @@ SOURCE_CACHE = "cache"
 # Translation providers use ISO 639-1 ("en"); Tesseract uses ISO 639-2 ("eng").
 # Both reach this module, so both are mapped.
 LANGUAGE_NAMES = {
-    "pt": "Português",
+    # "pb" is how the Argos catalogue spells Brazilian Portuguese. It is not an
+    # ISO code, so it is translated at the provider boundary (see
+    # google_cloud.PROVIDER_LANGUAGE_CODES).
+    "pb": "Português (Brasil)",
+    "pt": "Português (Portugal)",
     "por": "Português",
     "en": "Inglês",
     "eng": "Inglês",

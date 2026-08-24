@@ -3,7 +3,7 @@
   <schema id="io.github.reginaldomorais.TranslateLinux" path="/io/github/reginaldomorais/TranslateLinux/">
 
     <key name="target-language" type="s">
-      <default>'pt'</default>
+      <default>'pb'</default>
       <summary>Target language</summary>
       <description>Language code translations are produced in.</description>
     </key>
@@ -18,7 +18,7 @@
     </key>
 
     <key name="favourite-languages" type="as">
-      <default>['pt','en','es']</default>
+      <default>['pb','en','es','pt']</default>
       <summary>Languages offered in the tray menu</summary>
     </key>
 

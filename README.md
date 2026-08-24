@@ -104,7 +104,7 @@ CI. Para executá-los deliberadamente:
 ```bash
 make schema                                       # compila o esquema GSettings
 .venv/bin/translate-linux --install-engine        # motor offline, ~40 MB
-.venv/bin/translate-linux --install-model en-pt   # modelo en->pt, ~66 MB
+.venv/bin/translate-linux --install-model en-pb   # inglês -> português do Brasil, ~66 MB
 .venv/bin/translate-linux --doctor                # confere se está tudo certo
 ```
 
@@ -131,6 +131,13 @@ Confira o que ficou instalado com `--list-models`.
 A tradução roda **localmente por padrão**: nada sai da sua máquina e não há
 custo por caractere. Os modelos locais são de direção única e não detectam o
 idioma de origem — o padrão é inglês, ajustável com `--source`.
+
+### Português do Brasil
+
+O catálogo distingue as variantes: **`pb` é português do Brasil** e `pt` é o
+genérico, que na prática produz muito português europeu ("ficheiro", "ecrã",
+"estou a trabalhar"). Em um sistema com locale `pt_BR` o padrão já é `pb`, e o
+modelo a instalar é `en-pb`.
 
 Se quiser mais qualidade e aceitar o custo por caractere, há o provider oficial
 do Google:

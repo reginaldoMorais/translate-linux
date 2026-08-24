@@ -38,6 +38,11 @@ FALLBACK_TARGET = "pt"
 # "C" and "POSIX" are the absence of a locale, not a language.
 _NEUTRAL_LOCALES = frozenset({"c", "posix"})
 
+# Regional variants that have a model of their own. Falling back to the generic
+# language would work, but "pt" produces European Portuguese for a Brazilian
+# user, which reads as a foreign translation rather than a poor one.
+_REGIONAL_TARGETS = {"pt_br": "pb"}
+
 
 def default_target_language() -> str:
     """Derive the target language from the user's locale (RF-29)."""
@@ -51,7 +56,11 @@ def default_target_language() -> str:
     candidates.append(os.environ.get("LANG", ""))
 
     for candidate in candidates:
-        language = candidate.split("_", 1)[0].split(".", 1)[0].strip().lower()
+        cleaned = candidate.split(".", 1)[0].strip().lower()
+        regional = _REGIONAL_TARGETS.get(cleaned)
+        if regional:
+            return regional
+        language = cleaned.split("_", 1)[0]
         if language.isalpha() and language not in _NEUTRAL_LOCALES:
             return language
     return FALLBACK_TARGET

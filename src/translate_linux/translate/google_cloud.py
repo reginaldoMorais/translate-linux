@@ -38,6 +38,9 @@ MAX_ATTEMPTS = 3
 BASE_BACKOFF = 0.5
 MAX_REQUEST_CHARS = 5000
 
+# The catalogue's own codes are not ISO, so they are translated on the way out.
+PROVIDER_LANGUAGE_CODES = {"pb": "pt-BR", "pt": "pt-PT", "zt": "zh-TW"}
+
 RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 AUTH_STATUS = frozenset({400, 401, 403})
 
@@ -130,9 +133,13 @@ class GoogleCloudTranslator:
     def _request(
         self, texts: Sequence[str], source: str | None, target: str
     ) -> list[tuple[str, str | None]]:
-        payload: dict[str, Any] = {"q": list(texts), "target": target, "format": "text"}
+        payload: dict[str, Any] = {
+            "q": list(texts),
+            "target": PROVIDER_LANGUAGE_CODES.get(target, target),
+            "format": "text",
+        }
         if source:
-            payload["source"] = source
+            payload["source"] = PROVIDER_LANGUAGE_CODES.get(source, source)
 
         response = self._post_with_retries(payload)
         return _parse_response(response)

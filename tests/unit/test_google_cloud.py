@@ -249,3 +249,33 @@ class TestErrorMapping:
             translator.translate("Hello", None, "pt")
         assert len(delays) == 2
         assert delays[1] > delays[0]
+
+
+class TestLanguageCodeTranslation:
+    """The offline catalogue spells Brazilian Portuguese "pb", which is not an
+    ISO code and means nothing to an online service."""
+
+    def test_the_brazilian_code_becomes_iso_on_the_wire(self) -> None:
+        session = FakeSession()
+        make(session).translate("Hello", None, "pb")
+        assert session.calls[0]["json"]["target"] == "pt-BR"
+
+    def test_the_generic_code_becomes_european_portuguese(self) -> None:
+        session = FakeSession()
+        make(session).translate("Hello", None, "pt")
+        assert session.calls[0]["json"]["target"] == "pt-PT"
+
+    def test_an_iso_code_passes_through_untouched(self) -> None:
+        session = FakeSession()
+        make(session).translate("Hello", None, "de")
+        assert session.calls[0]["json"]["target"] == "de"
+
+    def test_the_source_is_translated_as_well(self) -> None:
+        session = FakeSession()
+        make(session).translate("Olá", "pb", "en")
+        assert session.calls[0]["json"]["source"] == "pt-BR"
+
+    def test_the_result_reports_the_code_the_caller_asked_for(self) -> None:
+        """The rest of the application speaks the catalogue's codes."""
+        session = FakeSession()
+        assert make(session).translate("Hello", None, "pb").target == "pb"

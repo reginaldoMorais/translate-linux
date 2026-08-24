@@ -66,8 +66,8 @@ def stub_pipeline(
 
 class TestDefaultTargetLanguage:
     def test_the_locale_language_is_used(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(locale, "getlocale", lambda: ("pt_BR", "UTF-8"))
-        assert default_target_language() == "pt"
+        monkeypatch.setattr(locale, "getlocale", lambda: ("it_IT", "UTF-8"))
+        assert default_target_language() == "it"
 
     def test_another_locale_is_honoured(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(locale, "getlocale", lambda: ("fr_FR", "UTF-8"))
@@ -313,3 +313,28 @@ class TestDelegationRouting:
 
         main(["--capture", flag])
         assert delegated == [], "delegation would have swallowed the output"
+
+
+class TestRegionalTargets:
+    """A Brazilian locale asking for "pt" gets European Portuguese, which reads
+    as a foreign translation rather than a weak one. The catalogue has a
+    Brazilian model under its own code, so the locale is honoured exactly."""
+
+    def test_a_brazilian_locale_selects_the_brazilian_model(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(locale, "getlocale", lambda: ("pt_BR", "UTF-8"))
+        assert default_target_language() == "pb"
+
+    def test_a_portuguese_locale_stays_generic(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(locale, "getlocale", lambda: ("pt_PT", "UTF-8"))
+        assert default_target_language() == "pt"
+
+    def test_the_environment_is_honoured_too(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(locale, "getlocale", lambda: (None, None))
+        monkeypatch.setenv("LANG", "pt_BR.UTF-8")
+        assert default_target_language() == "pb"
+
+    def test_other_regional_locales_are_unaffected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(locale, "getlocale", lambda: ("en_GB", "UTF-8"))
+        assert default_target_language() == "en"

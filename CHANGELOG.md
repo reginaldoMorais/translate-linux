@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Brazilian Portuguese as a target of its own. The catalogue spells it `pb`,
+  and the generic `pt` model produces largely European Portuguese -- "ficheiro",
+  "ecrã", "estou a trabalhar" -- which reads as a foreign translation rather
+  than a weak one. A `pt_BR` locale now selects `pb` by default, and the code
+  is translated to `pt-BR` on the way to an online provider, which does not
+  know the catalogue's spelling.
+
 ## [1.0.1] - 2026-08-23
 
 Three defects found on a real installation outside the development
