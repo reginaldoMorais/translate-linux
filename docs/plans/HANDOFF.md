@@ -411,3 +411,25 @@ A v1.0.0 passou em 499 testes, na CI e no smoke test em contêiner limpo — e p
 **Erro de processo meu:** empurrei um commit com o `mypy` quebrado. O `make check` falhou e o `push` rodou na sequência porque o script não parava no erro. Corrigido no commit seguinte, mas o certo era ter parado.
 
 **O que isso mudou na SPEC (v1.5):** RF-09 reescrita nomeando o mecanismo exato (a ambiguidade foi o que permitiu implementar metade); RF-50 sobre escape de markup; IC8 sobre `Gio.Settings` abortar via `g_error`; decisão de empacotamento sem debhelper registrada; desvio de checksum do índice Argos documentado; riscos R16 e R17; e um adendo à Fase 3 sobre o que a primeira instalação real ensinou.
+
+### 2026-08-23 — Qual português o modelo offline produz
+
+**Pergunta do usuário, respondida com medição.**
+
+O pacote `translate-en_pt-1_9` é rotulado como **`pt` genérico** ("Portuguese"), não `pt-BR`. O índice do Argos não oferece variante: só existem `en→pt`, `es→pt`, `pt→en`, `pt→es`.
+
+**Na prática ele é misto, e a variante acompanha o comprimento da frase:**
+
+| Entrada | Saída | Variante |
+|---|---|---|
+| "Open the file." | "Abre o ficheiro." | europeu |
+| "Open the file on the screen." | "Abra o arquivo na tela." | brasileiro |
+| "Click here to open the file." | "Clique aqui para abrir o arquivo." | brasileiro |
+
+Em 8 frases realistas de interface: 2 europeias, 2 brasileiras, 4 neutras.
+
+**Erro meu no diagnóstico, que vale registrar.** Primeiro caracterizei como "misto". Depois rodei um teste discriminativo que deu **8 de 8 europeu** e me corrigi dizendo que era consistentemente europeu. Essa correção estava errada: meu teste usava as frases mais curtas possíveis ("Open the file.", "Take the bus."), que é justamente a forma que puxa para o europeu — e a menos parecida com o que uma captura de tela real produz. A caracterização original estava certa; o teste é que estava mal desenhado.
+
+**Beco sem saída testado:** o vocabulário do modelo **contém** `>>por<<` e `>>pob<<` (`pob` = português brasileiro no OPUS). Mas o modelo **não responde** a eles — nem prefixando o texto, nem como peça de token, nem como `target_prefix` do CTranslate2. Não tente de novo.
+
+**Caminho que existe (PA-13):** `Helsinki-NLP/opus-mt-tc-big-en-pt` declara `target language(s): pob por` e usa `>>pob<<` para brasileiro. Converter exige `ct2-transformers-converter` com `torch` e `transformers` — pesado, mas uma vez só. Não avaliado quanto a tamanho em disco nem qualidade.
