@@ -157,7 +157,7 @@ Outros comandos:
 | `--shortcut '<Super><Shift>t'` | Registra o atalho global (`off` remove)                 |
 | `--list-models`                | Lista o motor e os modelos offline instalados           |
 | `--install-engine`             | Instala o motor offline em um virtualenv privado        |
-| `--install-model PAR`          | Baixa e instala um modelo, por exemplo `en-pt`          |
+| `--install-model PAR`          | Baixa e instala um modelo, por exemplo `en-pb`          |
 | `--portal-info`                | Mostra o tipo de sessão e a versão do portal de captura |
 | `--set-api-key`                | Guarda a chave da API do Google no chaveiro (sem eco)   |
 | `--clear-api-key`              | Remove a chave guardada                                 |
@@ -180,7 +180,7 @@ e instale:
 ```bash
 sudo apt install ./translate-linux_1.0.1_all.deb
 translate-linux --install-engine        # motor offline, ~40 MB
-translate-linux --install-model en-pt   # modelo en->pt, ~66 MB
+translate-linux --install-model en-pb   # inglês -> português do Brasil, ~66 MB
 translate-linux --doctor                # confere se está tudo certo
 ```
 
