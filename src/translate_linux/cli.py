@@ -412,11 +412,52 @@ def _build_provider(args: argparse.Namespace) -> object | int:
     return LocalTranslator()
 
 
+def delegate_to_running_instance() -> bool:
+    """Ask an already-running tray instance to capture; report whether it did.
+
+    A global shortcut can only run a command, so the shortcut runs this one.
+    Without delegation that command starts a second, headless process which
+    captures into a terminal nobody is looking at -- which is what "the
+    shortcut does nothing" actually was.
+    """
+    import gi
+
+    gi.require_version("Gio", "2.0")
+    from gi.repository import Gio, GLib
+
+    from translate_linux.constants import APP_ID, APP_OBJECT_PATH, CAPTURE_ACTION
+
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        bus.call_sync(
+            APP_ID,
+            APP_OBJECT_PATH,
+            "org.freedesktop.Application",
+            "ActivateAction",
+            GLib.Variant("(sava{sv})", (CAPTURE_ACTION, [], {})),
+            None,
+            # Never spawn an instance: absence of one is the answer we want.
+            Gio.DBusCallFlags.NO_AUTO_START,
+            3000,
+            None,
+        )
+    except GLib.Error:
+        return False
+    return True
+
+
 def _capture(args: argparse.Namespace) -> int:
     from translate_linux.capture.portal import CaptureCancelled, CaptureError
     from translate_linux.ocr.tesseract import TesseractError
     from translate_linux.orchestrator import NoTextRecognised, capture_and_translate
     from translate_linux.translate.base import TranslationError
+
+    # A plain capture belongs to the tray when one is running: that is where
+    # the result window lives. Asking for terminal output means the caller
+    # wants it here, so those forms always run in this process.
+    wants_terminal_output = args.as_json or args.ocr_only
+    if not wants_terminal_output and delegate_to_running_instance():
+        return EXIT_OK
 
     target = args.target or default_target_language()
 

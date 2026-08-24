@@ -24,7 +24,7 @@ gi.require_version("Gio", "2.0")
 
 from gi.repository import Adw, Gio, GLib  # noqa: E402
 
-from translate_linux.constants import APP_ID  # noqa: E402
+from translate_linux.constants import APP_ID, CAPTURE_ACTION  # noqa: E402
 from translate_linux.tray import TrayIcon, watcher_is_running  # noqa: E402
 from translate_linux.ui import messages  # noqa: E402
 from translate_linux.ui.menu import MenuItem, MenuModel, separator  # noqa: E402
@@ -74,6 +74,14 @@ class TranslateLinuxApplication(Adw.Application):
     def do_startup(self) -> None:
         Adw.Application.do_startup(self)
         self.hold()  # there is no window to keep the application alive
+
+        # Exposed over org.freedesktop.Application so that a keyboard shortcut
+        # -- which can only run a command, not talk to a process -- reaches
+        # this instance instead of starting a second, headless one.
+        action = Gio.SimpleAction.new(CAPTURE_ACTION, None)
+        action.connect("activate", lambda *_args: self.start_capture())
+        self.add_action(action)
+
         self._install_tray()
         GLib.timeout_add_seconds(IDLE_CHECK_SECONDS, self._release_idle_model)
 

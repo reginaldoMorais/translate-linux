@@ -10,6 +10,12 @@ APP_NAME = "translate-linux"
 APP_ID = "io.github.reginaldomorais.TranslateLinux"
 APP_TITLE = "Translate Linux"
 
+# GApplication publishes org.freedesktop.Application here, derived from APP_ID.
+APP_OBJECT_PATH = "/" + APP_ID.replace(".", "/")
+# The action a running instance exposes so that a keyboard shortcut, or any
+# second invocation, can ask it to capture instead of starting its own.
+CAPTURE_ACTION = "capture"
+
 
 def runtime_dir() -> Path:
     """Return a private directory for short-lived files.

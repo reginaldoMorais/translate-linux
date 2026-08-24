@@ -272,3 +272,44 @@ class TestKeyringCommands:
 
         monkeypatch.setattr(getpass, "getpass", interrupt)
         assert main(["--set-api-key"]) == 1
+
+
+class TestDelegationRouting:
+    """A global shortcut can only run a command, so the command has to find the
+    running tray. Without that it starts a second, headless process and
+    captures into a terminal nobody is looking at."""
+
+    def test_a_plain_capture_goes_to_the_running_instance(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured = stub_pipeline(monkeypatch, OUTCOME)
+        monkeypatch.setattr(cli, "delegate_to_running_instance", lambda: True)
+
+        assert main(["--capture"]) == 0
+        assert captured == {}, "the local pipeline must not also run"
+
+    def test_without_an_instance_the_capture_happens_here(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured = stub_pipeline(monkeypatch, OUTCOME)
+        monkeypatch.setattr(cli, "delegate_to_running_instance", lambda: False)
+
+        assert main(["--capture"]) == 0
+        assert captured != {}
+
+    @pytest.mark.parametrize("flag", ["--json", "--ocr-only"])
+    def test_terminal_output_is_never_delegated(
+        self, monkeypatch: pytest.MonkeyPatch, flag: str
+    ) -> None:
+        """Asking for output here means it must be produced here."""
+        delegated: list[bool] = []
+
+        def record() -> bool:
+            delegated.append(True)
+            return True
+
+        monkeypatch.setattr(cli, "delegate_to_running_instance", record)
+        stub_pipeline(monkeypatch, OCR_ONLY_OUTCOME if flag == "--ocr-only" else OUTCOME)
+
+        main(["--capture", flag])
+        assert delegated == [], "delegation would have swallowed the output"
